@@ -29,8 +29,8 @@ function update(){
   $('#hint').classList.toggle('gone',n>0);
   PARTS.forEach((p,i)=>{const g=$('#p-'+p.id);if(g)g.classList.toggle('on',has(i))});
   if(GL.ready)GL.sync();
-  $('#status').textContent=awake?'Awake: ready to roll':(all?'Fully built: covered in dust':'Offline: '+n+' of '+PARTS.length+' parts');
-  go.textContent=awake?'Start over':(all?'Wake Opportunity':'Unlock next part');
+  $('#status').textContent=awake?'Awake: ready to roll':(all?'Fully built':'Offline: '+n+' of '+PARTS.length+' parts');
+  go.textContent=awake?'Start over':(all?'Wake Up, Opportunity!':'Unlock next part');
   renderList();
 }
 // The one way to add a part. Returns true if something changed.
@@ -95,7 +95,7 @@ function stripTextures(buf){
   out.set(jb,20);out.set(rest,20+jb.length);
   return out.buffer;
 }
-const GL={ready:false,groups:[],ghosts:[],base:null,mats:[],dust:.55,dustT:.55,
+const GL={ready:false,groups:[],ghosts:[],base:null,
 init(){
   if(this.r)return;
   const box=$('#gl'),w=box.clientWidth||640,h=box.clientHeight||360;
@@ -103,9 +103,10 @@ init(){
   this.r.outputEncoding=THREE.sRGBEncoding;
   this.r.setPixelRatio(Math.min(devicePixelRatio||1,2));this.r.setSize(w,h,false);box.appendChild(this.r.domElement);
   this.s=new THREE.Scene();
-  this.c=new THREE.PerspectiveCamera(40,w/h,.1,100);this.c.position.set(5.5,3,6.5);
-  this.s.add(new THREE.HemisphereLight(0xfff0dd,0x6b4a35,1.1));
-  const d=new THREE.DirectionalLight(0xffffff,1.1);d.position.set(4,8,5);this.s.add(d);
+    this.c=new THREE.PerspectiveCamera(40,w/h,.1,100);this.c.position.set(5.5,3,6.5);
+  this.s.add(new THREE.HemisphereLight(0xeaf4ff,0x465b72,1.8));
+  const d=new THREE.DirectionalLight(0xffffff,2);d.position.set(4,8,5);this.s.add(d);
+  const fill=new THREE.DirectionalLight(0xd9eaff,1.1);fill.position.set(-5,3,-4);this.s.add(fill);
   this.o=new THREE.OrbitControls(this.c,this.r.domElement);
   this.o.enableDamping=true;this.o.autoRotateSpeed=1.4;this.o.target.set(0,.9,0);
   addEventListener('resize',()=>this.size());
@@ -116,10 +117,6 @@ tick(){
   if(!this.ready||!$('.stage').classList.contains('is3d'))return;
   this.o.update();
   this.groups.forEach(g=>{if(g.position.y>.002)g.position.y*=.86;else g.position.y=0});
-  if(Math.abs(this.dust-this.dustT)>.002){
-    this.dust+=(this.dustT-this.dust)*.035;
-    this.mats.forEach(m=>m.color.copy(m.userData.c0).lerp(new THREE.Color(0xb07a45),this.dust));
-  }
   this.r.render(this.s,this.c);
 },
 load(buf){
@@ -136,8 +133,8 @@ load(buf){
 build(root){
   $('.stage').classList.add('is3d');this.init();this.size();
   if(this.root)this.s.remove(this.root);
-  [...this.groups,...this.ghosts,this.base].forEach(g=>g&&this.s.remove(g));this.groups=[];this.ghosts=[];this.mats=[];
-  this.gm=this.gm||new THREE.MeshBasicMaterial({color:0xc98a2b,transparent:true,opacity:.16,depthWrite:false});
+  [...this.groups,...this.ghosts,this.base].forEach(g=>g&&this.s.remove(g));this.groups=[];this.ghosts=[];
+  this.gm=this.gm||new THREE.MeshBasicMaterial({color:0x83a9d1,transparent:true,opacity:.16,depthWrite:false});
   root.updateMatrixWorld(true);
   const b=new THREE.Box3().setFromObject(root),sz=b.getSize(new THREE.Vector3()),ctr=b.getCenter(new THREE.Vector3());
   const k=4/Math.max(sz.x,sz.y,sz.z);
@@ -153,11 +150,7 @@ build(root){
     const i=PARTS.findIndex(p=>p.id===id);
     (i<0?baseBin:bins[i]).push(m);
   });
-  const keep=(g,m)=>{
-    g.attach(m);
-    m.material=Array.isArray(m.material)?m.material.map(x=>x.clone()):m.material.clone();
-    (Array.isArray(m.material)?m.material:[m.material]).forEach(x=>{if(x.color){x.userData.c0=x.color.clone();this.mats.push(x)}});
-  };
+  const keep=(g,m)=>g.attach(m);
   this.base=new THREE.Group();this.s.add(this.base);
   baseBin.forEach(m=>keep(this.base,m));
   PARTS.forEach((p,i)=>{
@@ -169,17 +162,17 @@ build(root){
       keep(g,m);
     });
   });
-  this.ready=true;this.dust=0;this.dustT=awake?0:.55;
+  this.ready=true;
   $('#toggle').hidden=false;$('#toggle').textContent='Show illustration';
   msg('Locked parts show as faint outlines. '+meshes.length+' pieces sorted into '+PARTS.length+' parts.');
   $('#map').hidden=false;
   $('#maptxt').textContent=[['Base (always shown)',baseBin],...PARTS.map((p,i)=>[p.name,bins[i]])].map(([nm,bin])=>nm+': '+bin.length+' piece(s)'+(bin.length?' ('+bin.slice(0,4).map(m=>(m.material&&m.material.name)||m.name||'unnamed').join(', ')+')':'')).join('\n');
   this.sync();
 },
-sync(){this.groups.forEach((g,i)=>g.visible=has(i));this.ghosts.forEach((g,i)=>g.visible=!has(i));this.dustT=awake?0:.55},
+sync(){this.groups.forEach((g,i)=>g.visible=has(i));this.ghosts.forEach((g,i)=>g.visible=!has(i))},
 pop(i){if(this.groups[i])this.groups[i].position.y=1.8},
-wake(){this.dustT=0;this.o.autoRotate=true},
-reset(){this.dustT=.55;this.o.autoRotate=false;this.sync()}
+wake(){this.o.autoRotate=true},
+reset(){this.o.autoRotate=false;this.sync()}
 };
 function readFile(f){
   if(!f)return;msg('Reading '+f.name+'…');
@@ -194,7 +187,7 @@ stg.ondragleave=()=>stg.classList.remove('over');
 stg.ondrop=e=>{e.preventDefault();stg.classList.remove('over');readFile(e.dataTransfer.files[0])};
 $('#reset').onclick=()=>reset();
 update();showInfo(-1);
-fetch('assets/mer_small.glb')
+fetch('assets/24883_MER_static.glb')
   .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer()})
   .then(buf=>GL.load(buf))
-  .catch(e=>msg('Could not load assets/mer_small.glb ('+e.message+'). Serve the folder over http, not file://.'));
+  .catch(e=>msg('Could not load assets/24883_MER_static.glb ('+e.message+'). Serve the folder over http, not file://.'));
