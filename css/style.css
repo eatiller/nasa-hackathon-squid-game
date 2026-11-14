@@ -68,3 +68,16 @@ ol.tl p{margin:0;max-width:62ch;color:var(--mute)}
 details#map{margin-top:12px;font-size:13px;color:var(--mute)}
 details#map pre{white-space:pre-wrap;margin:6px 0 0;font:12px/1.4 ui-monospace,monospace}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* platform status + dev panel */
+.platform{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:14px;color:var(--mute)}
+.platform button{padding:6px 12px;font-size:14px}
+#plat::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--line);vertical-align:1px}
+#plat[data-state="ok"]{color:var(--ink)}#plat[data-state="ok"]::before{background:#3d9a5b}
+#plat[data-state="err"]::before{background:var(--rust)}
+#dev{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:13px;color:var(--mute)}
+#dev h3{font-size:16px;color:var(--ink);margin-bottom:6px}#dev small{font-weight:400;color:var(--mute)}
+#dev ul{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px}
+#dev li{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#dev select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+#dev pre{white-space:pre-wrap;word-break:break-all;margin:4px 0 8px;font:12px/1.4 ui-monospace,monospace;background:var(--bg);padding:6px 8px;border-radius:8px}
+#dev p{margin:6px 0 0}#dev button{padding:6px 12px;font-size:13px}

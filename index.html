@@ -23,32 +23,40 @@
 <rect y="300" width="640" height="60" fill="var(--rust)" opacity=".35"/>
 <ellipse cx="320" cy="304" rx="210" ry="9" fill="#000" opacity=".15"/>
 <g id="rover" class="dusty">
-  <g class="part" id="p-chassis"><rect class="metal" x="200" y="172" width="250" height="62" rx="9"/><rect class="dk" x="216" y="186" width="60" height="30" rx="4" opacity=".35"/><circle cx="420" cy="203" r="6" class="dk"/></g>
-  <g class="part" id="p-suspension">
+  <g class="base" id="base-body"><rect class="metal" x="200" y="172" width="250" height="62" rx="9"/><rect class="dk" x="216" y="186" width="60" height="30" rx="4" opacity=".35"/><circle cx="420" cy="203" r="6" class="dk"/></g>
+  <g class="part" id="p-wheels">
     <polyline class="line" points="300,232 175,276 300,276"/><polyline class="line" points="400,232 470,276"/><polyline class="line" points="300,232 400,232"/>
     <g class="wheel"><circle cx="175" cy="272" r="32" class="metal"/><circle cx="175" cy="272" r="11" class="dk"/><path d="M175 244v56M147 272h56" stroke="var(--dark)" stroke-width="3"/></g>
     <g class="wheel"><circle cx="300" cy="272" r="32" class="metal"/><circle cx="300" cy="272" r="11" class="dk"/><path d="M300 244v56M272 272h56" stroke="var(--dark)" stroke-width="3"/></g>
     <g class="wheel"><circle cx="470" cy="272" r="32" class="metal"/><circle cx="470" cy="272" r="11" class="dk"/><path d="M470 244v56M442 272h56" stroke="var(--dark)" stroke-width="3"/></g>
   </g>
   <g class="part" id="p-solar"><polygon points="188,170 452,170 496,146 232,146" class="cell"/><path d="M254 146L210 170M276 146L232 170M298 146L254 170M320 146L276 170M342 146L298 170M364 146L320 170M386 146L342 170M408 146L364 170M430 146L386 170M452 146L408 170M474 146L430 170" stroke="#8ba0cc" stroke-width="1" opacity=".7"/></g>
-  <g class="part" id="p-mast"><path class="line" d="M340 148V62" style="stroke-width:8"/><rect class="metal" x="316" y="36" width="64" height="28" rx="5"/><circle class="lens" cx="334" cy="50" r="7"/><circle class="lens" cx="362" cy="50" r="7"/></g>
+  <g class="part" id="p-camera"><path class="line" d="M340 148V62" style="stroke-width:8"/><rect class="metal" x="316" y="36" width="64" height="28" rx="5"/><circle class="lens" cx="334" cy="50" r="7"/><circle class="lens" cx="362" cy="50" r="7"/></g>
   <g class="part" id="p-arm"><polyline class="line" points="448,205 506,226 548,262" style="stroke-width:9"/><circle cx="548" cy="264" r="15" class="metal"/><circle cx="548" cy="264" r="5" class="dk"/><circle cx="562" cy="276" r="5" fill="var(--rust)"/></g>
-  <g class="part" id="p-antenna"><path class="line" d="M236 148V104" style="stroke-width:5"/><ellipse cx="236" cy="96" rx="30" ry="10" class="metal" transform="rotate(-22 236 96)"/></g>
+  <g class="base" id="base-antenna"><path class="line" d="M236 148V104" style="stroke-width:5"/><ellipse cx="236" cy="96" rx="30" ry="10" class="metal" transform="rotate(-22 236 96)"/></g>
 </g>
 </svg>
 <div id="gl"></div>
 <div class="hint" id="hint">Build pad empty. Unlock your first part.</div>
-<div id="status" aria-live="polite">Offline: 0 of 6 parts</div>
+<div id="status" aria-live="polite">Offline</div>
 <div class="tools"><button class="ghost" id="pick" type="button">Load a different .glb</button><input type="file" id="file" accept=".glb,.gltf" hidden><button class="ghost" id="toggle" type="button" hidden>Show illustration</button><span id="msg">Loading NASA 3D model…</span><span>Model: NASA/JPL-Caltech</span></div>
 </div>
 
 <div class="card">
-<div class="meta"><span id="count">0 of 6 parts unlocked</span><span id="pct">0%</span></div>
+<div class="meta"><span id="count">0 parts unlocked</span><span id="pct">0%</span></div>
 <div class="bar"><i id="fill"></i></div>
-<div class="actions"><button id="go">Unlock part 1</button><button class="ghost" id="reset">Start over</button></div>
+<div class="platform"><span id="plat" aria-live="polite">Platform not connected</span><button class="ghost" id="connect" type="button">Connect platform</button></div>
+<div class="actions"><button id="go">Unlock next part</button><button class="ghost" id="reset">Start over</button></div>
 <ul class="parts" id="list"></ul>
 <div class="info" id="info"></div>
 <details id="map" hidden><summary>Model mapping</summary><pre id="maptxt"></pre></details>
+<section id="dev" hidden aria-label="Developer panel">
+<h3>RFID tags <small>(press d to hide)</small></h3>
+<ul id="tags"></ul>
+<p>Copy into <code>js/data.js</code> to keep:</p><pre id="saved"></pre>
+<button class="ghost" id="clearTags" type="button">Forget assigned tags</button>
+<p>Last serial lines:</p><pre id="rawlog"></pre>
+</section>
 </div>
 </div>
 
@@ -64,5 +72,6 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="js/data.js"></script>
 <script src="js/app.js"></script>
+<script src="js/input.js"></script>
 </body>
 </html>

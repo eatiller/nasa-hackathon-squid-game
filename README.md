@@ -2,7 +2,7 @@
 
 # Build Opportunity
 
-An interactive site where you unlock the parts of NASA's Opportunity rover one by one. Each unlock shows details about the part and builds the 3D rover. When all six parts are unlocked, the rover wakes up, shakes off the dust, and a mission timeline appears.
+An interactive site where you unlock the parts of NASA's Opportunity rover one by one. Each unlock shows details about the part and builds the 3D rover. When all four parts (solar array, arm, camera mast, wheels) are placed, the rover wakes up, shakes off the dust, and a mission timeline appears.
 
 ## Run locally
 
@@ -10,14 +10,17 @@ The 3D model loads with `fetch`, so open the folder through a local web server (
 
     python3 -m http.server 8000
 
-Then visit http://localhost:8000.
+Then visit http://localhost:8000 in Chrome or Edge (Web Serial is needed for the RFID platform).
+
+Controls: plug in the Pico and click **Connect platform** once (the browser remembers it), or use keys `1`–`4` to unlock parts, `r` to reset, and `d` for the dev panel.
 
 ## Structure
 
 - `index.html` - page markup
 - `css/style.css` - styles (light and dark themes)
 - `js/data.js` - part descriptions and timeline entries
-- `js/app.js` - game state, Three.js model loading, UI
+- `js/app.js` - game state (`unlock(id)`, `reset()`), Three.js model loading, UI
+- `js/input.js` - RFID platform over Web Serial, keyboard shortcuts, dev panel for registering tags
 - `assets/mer_small.glb` - compressed copy of the NASA model (textures resized to 1024 px)
 
 Three.js r128 is loaded from the jsDelivr CDN, so no build step is needed.

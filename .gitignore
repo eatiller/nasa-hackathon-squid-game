@@ -1,0 +1,13 @@
+# Local Claude Code notes
+CLAUDE.md
+
+# Dependencies / build output
+node_modules/
+dist/
+
+# Pico build output
+build/
+
+# OS / editor
+.DS_Store
+Thumbs.db

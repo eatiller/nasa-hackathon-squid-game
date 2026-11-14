@@ -1,12 +1,15 @@
 // Game state, 3D loader (Three.js), and UI wiring.
-let n=0,cur=-1,awake=false;
+// Inputs (button, keyboard, RFID platform in input.js) only call unlock(id) and reset().
+const unlocked=new Set();
+let cur=-1,awake=false;
 const $=s=>document.querySelector(s);
 const list=$('#list'),info=$('#info'),go=$('#go');
+const has=i=>unlocked.has(PARTS[i].id);
 function renderList(){
   list.innerHTML='';
   PARTS.forEach((p,i)=>{
     const li=document.createElement('li'),b=document.createElement('button');
-    const on=i<n;
+    const on=has(i);
     b.className=(on?'on ':'')+(i===cur?'cur':'');
     b.setAttribute('aria-disabled',on?'false':'true');
     b.innerHTML=(on?'✔':'🔒')+' <span>'+(on?p.name:'Locked part '+(i+1))+'</span>';
@@ -15,27 +18,37 @@ function renderList(){
   });
 }
 function showInfo(i){
-  if(i<0){info.innerHTML='<p style="color:var(--mute);margin:0">Part details will appear here as you unlock them.</p>';return}
+  if(i<0){info.innerHTML='<p style="color:var(--mute);margin:0">Place a part on the platform. Its details will appear here.</p>';return}
   const p=PARTS[i];
   info.innerHTML='<p class="tag">'+p.tag+'</p><h2>'+p.name+'</h2><p>'+p.desc+'</p><dl>'+p.specs.map(s=>'<dt>'+s[0]+'</dt><dd>'+s[1]+'</dd>').join('')+'</dl><p class="fact">'+p.fact+'</p>';
 }
 function update(){
-  const pct=Math.round(n/PARTS.length*100);
+  const n=unlocked.size,all=n===PARTS.length,pct=Math.round(n/PARTS.length*100);
   $('#count').textContent=n+' of '+PARTS.length+' parts unlocked';
   $('#pct').textContent=pct+'%';$('#fill').style.width=pct+'%';
   $('#hint').classList.toggle('gone',n>0);
-  PARTS.forEach((p,i)=>$('#p-'+p.id).classList.toggle('on',i<n));
+  PARTS.forEach((p,i)=>{const g=$('#p-'+p.id);if(g)g.classList.toggle('on',has(i))});
   if(GL.ready)GL.sync();
-  $('#status').textContent=awake?'Awake: ready to roll':(n===PARTS.length?'Fully built: covered in dust':'Offline: '+n+' of '+PARTS.length+' parts');
-  go.textContent=awake?'Replay wake-up':(n===PARTS.length?'Wake Opportunity':'Unlock part '+(n+1));
+  $('#status').textContent=awake?'Awake: ready to roll':(all?'Fully built: covered in dust':'Offline: '+n+' of '+PARTS.length+' parts');
+  go.textContent=awake?'Start over':(all?'Wake Opportunity':'Unlock next part');
   renderList();
 }
+// The one way to add a part. Returns true if something changed.
+function unlock(id){
+  const i=PARTS.findIndex(p=>p.id===id);
+  if(i<0||awake||unlocked.has(id))return false;   // the finale stays up until someone presses Start over or r
+  unlocked.add(id);cur=i;
+  update();showInfo(i);if(GL.ready)GL.pop(i);
+  return true;
+}
 go.onclick=()=>{
-  if(awake){reset(true);return}
-  if(n<PARTS.length){cur=n;n++;update();showInfo(cur);if(GL.ready)GL.pop(cur);return}
+  if(awake){reset();return}
+  const next=PARTS.find(p=>!unlocked.has(p.id));
+  if(next){unlock(next.id);return}
   wake();
 };
 function wake(){
+  if(awake||unlocked.size<PARTS.length)return;
   awake=true;
   if(GL.ready)GL.wake();
   $('#rover').classList.remove('dusty');
@@ -43,7 +56,7 @@ function wake(){
   update();
   info.innerHTML='<p class="tag">Systems online</p><h2>Opportunity is awake</h2><p>The dust is gone, the cameras are watching, and the wheels are turning. Scroll down for the mission timeline.</p>';
   buildTimeline();
-  setTimeout(()=>$('#timeline').scrollIntoView({behavior:'smooth'}),1400);
+  setTimeout(()=>{if(awake)$('#timeline').scrollIntoView({behavior:'smooth'})},1400);
 }
 function buildTimeline(){
   const ol=$('#tl');ol.className='tl';
@@ -51,18 +64,21 @@ function buildTimeline(){
   $('#timeline').classList.add('show');
   requestAnimationFrame(()=>requestAnimationFrame(()=>ol.classList.add('go')));
 }
-function reset(replay){
-  n=0;cur=-1;awake=false;
+function reset(){
+  unlocked.clear();cur=-1;awake=false;
   if(GL.ready)GL.reset();
   $('#rover').classList.add('dusty');
   $('.stage').classList.remove('awake');
   $('#timeline').classList.remove('show');$('#tl').className='tl';
   update();showInfo(-1);
-  if(replay)window.scrollTo({top:0,behavior:'smooth'});
+  if(scrollY>0)window.scrollTo({top:0,behavior:'smooth'});
 }
 
 const msg=t=>$('#msg').textContent=t;
-const NAMES=[/body|chassis|warm|web\b|deck|electronic|box/i,/wheel|rocker|bogie|suspens|strut|axle|tire|tyre/i,/solar|panel|array|cell/i,/mast|pancam|navcam|camera|periscope/i,/idd|arm|turret|instrument|tool|rat\b|drill/i,/hga|antenna|dish|lga/i];
+// Model materials -> part id. Anything not listed (body, deck, antennas) is the base, which is always shown.
+const MATMAP={tex_panels_n:'solar',tex_panels2_n:'solar',tex_arm:'arm',tex_mast:'camera',foil_silver:'camera',tex_suspension_n:'wheels'};
+// Fallback for other .glb files: match mesh names.
+const NAMES={solar:/solar|panel|array|cell/i,arm:/idd|arm|turret|instrument|tool|rat\b|drill/i,camera:/mast|pancam|navcam|camera|periscope/i,wheels:/wheel|rocker|bogie|suspens|strut|axle|tire|tyre/i};
 function stripTextures(buf){
   const dv=new DataView(buf);
   if(dv.getUint32(0,true)!==0x46546C67)throw new Error('not a .glb file');
@@ -79,8 +95,7 @@ function stripTextures(buf){
   out.set(jb,20);out.set(rest,20+jb.length);
   return out.buffer;
 }
-const MATMAP={tex_body_n:0,tex_suspension_n:1,tex_panels_n:2,tex_panels2_n:2,tex_mast:3,foil_silver:3,tex_arm:4,tex_instruments:5,Silver:5};
-const GL={ready:false,groups:[],ghosts:[],mats:[],dust:.55,dustT:.55,
+const GL={ready:false,groups:[],ghosts:[],base:null,mats:[],dust:.55,dustT:.55,
 init(){
   if(this.r)return;
   const box=$('#gl'),w=box.clientWidth||640,h=box.clientHeight||360;
@@ -121,51 +136,47 @@ load(buf){
 build(root){
   $('.stage').classList.add('is3d');this.init();this.size();
   if(this.root)this.s.remove(this.root);
-  this.groups.forEach(g=>this.s.remove(g));this.ghosts.forEach(g=>this.s.remove(g));this.groups=[];this.ghosts=[];this.mats=[];
+  [...this.groups,...this.ghosts,this.base].forEach(g=>g&&this.s.remove(g));this.groups=[];this.ghosts=[];this.mats=[];
   this.gm=this.gm||new THREE.MeshBasicMaterial({color:0xc98a2b,transparent:true,opacity:.16,depthWrite:false});
   root.updateMatrixWorld(true);
   const b=new THREE.Box3().setFromObject(root),sz=b.getSize(new THREE.Vector3()),ctr=b.getCenter(new THREE.Vector3());
   const k=4/Math.max(sz.x,sz.y,sz.z);
   root.scale.multiplyScalar(k);root.position.sub(ctr.multiplyScalar(k));root.position.y+=sz.y*k/2;
   this.s.add(root);this.root=root;root.updateMatrixWorld(true);
-  b.setFromObject(root);const mn=b.min.clone(),size=b.getSize(new THREE.Vector3());
   const meshes=[];root.traverse(o=>{if(o.isMesh)meshes.push(o)});
   if(!meshes.length)throw new Error('no visible geometry found in the file');
-  const bins=PARTS.map(()=>[]);
-  const merged=meshes.length<6;
+  const bins=PARTS.map(()=>[]),baseBin=[];
   meshes.forEach(m=>{
-    let i=-1;
     const mt=Array.isArray(m.material)?m.material[0]:m.material;
-    if(mt&&MATMAP[mt.name]!==undefined)i=MATMAP[mt.name];
-    else if(!merged){
-      i=NAMES.findIndex(r=>r.test(m.name||''));
-      if(i<0){
-        const c=new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
-        const ny=(c.y-mn.y)/size.y,nx=(c.x-mn.x)/size.x;
-        i=ny<.3?1:ny>.78?(nx<.5?5:3):ny>.6?2:0;
-      }
-    }else i=0;
-    bins[i].push(m);
+    let id=mt&&MATMAP[mt.name];
+    if(!id)id=Object.keys(NAMES).find(k=>NAMES[k].test(m.name||''));
+    const i=PARTS.findIndex(p=>p.id===id);
+    (i<0?baseBin:bins[i]).push(m);
   });
+  const keep=(g,m)=>{
+    g.attach(m);
+    m.material=Array.isArray(m.material)?m.material.map(x=>x.clone()):m.material.clone();
+    (Array.isArray(m.material)?m.material:[m.material]).forEach(x=>{if(x.color){x.userData.c0=x.color.clone();this.mats.push(x)}});
+  };
+  this.base=new THREE.Group();this.s.add(this.base);
+  baseBin.forEach(m=>keep(this.base,m));
   PARTS.forEach((p,i)=>{
     const g=new THREE.Group();this.s.add(g);this.groups.push(g);
     const gh=new THREE.Group();this.s.add(gh);this.ghosts.push(gh);
     bins[i].forEach(m=>{
       m.updateWorldMatrix(true,false);
       const gmesh=new THREE.Mesh(m.geometry,this.gm);gmesh.matrixAutoUpdate=false;gmesh.matrix.copy(m.matrixWorld);gh.add(gmesh);
-      g.attach(m);
-      m.material=Array.isArray(m.material)?m.material.map(x=>x.clone()):m.material.clone();
-      (Array.isArray(m.material)?m.material:[m.material]).forEach(x=>{if(x.color){x.userData.c0=x.color.clone();this.mats.push(x)}});
+      keep(g,m);
     });
   });
   this.ready=true;this.dust=0;this.dustT=awake?0:.55;
   $('#toggle').hidden=false;$('#toggle').textContent='Show illustration';
-  msg('Locked parts show as faint outlines. '+(merged?'This model is one merged piece, so it appears all at once on the first unlock.':meshes.length+' pieces sorted into 6 parts.'));
+  msg('Locked parts show as faint outlines. '+meshes.length+' pieces sorted into '+PARTS.length+' parts.');
   $('#map').hidden=false;
-  $('#maptxt').textContent=PARTS.map((p,i)=>p.name+': '+bins[i].length+' piece(s)'+(bins[i].length?' ('+bins[i].slice(0,4).map(m=>m.name||'unnamed').join(', ')+')':'')).join('\n');
+  $('#maptxt').textContent=[['Base (always shown)',baseBin],...PARTS.map((p,i)=>[p.name,bins[i]])].map(([nm,bin])=>nm+': '+bin.length+' piece(s)'+(bin.length?' ('+bin.slice(0,4).map(m=>(m.material&&m.material.name)||m.name||'unnamed').join(', ')+')':'')).join('\n');
   this.sync();
 },
-sync(){this.groups.forEach((g,i)=>g.visible=i<n);this.ghosts.forEach((g,i)=>g.visible=i>=n);this.dustT=awake?0:.55},
+sync(){this.groups.forEach((g,i)=>g.visible=has(i));this.ghosts.forEach((g,i)=>g.visible=!has(i));this.dustT=awake?0:.55},
 pop(i){if(this.groups[i])this.groups[i].position.y=1.8},
 wake(){this.dustT=0;this.o.autoRotate=true},
 reset(){this.dustT=.55;this.o.autoRotate=false;this.sync()}
@@ -181,7 +192,7 @@ const stg=$('.stage');
 stg.ondragover=e=>{e.preventDefault();stg.classList.add('over')};
 stg.ondragleave=()=>stg.classList.remove('over');
 stg.ondrop=e=>{e.preventDefault();stg.classList.remove('over');readFile(e.dataTransfer.files[0])};
-$('#reset').onclick=()=>reset(false);
+$('#reset').onclick=()=>reset();
 update();showInfo(-1);
 fetch('assets/mer_small.glb')
   .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer()})
