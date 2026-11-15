@@ -84,7 +84,7 @@ function add(){
 function wake(){
   if(phase!=='ready')return;
   SND.cue('wake');
-  phase='rewind';update();if(GL.ready)GL.wake();
+  phase='rewind';update();if(GL.ready){GL.presentation(true);GL.wake()}
   const strip=$('#rwStrip'),W=140,y0=2003,from=2018+5.5/12,to=2003+6/12,T=3400;let t0=0;
   strip.innerHTML='';for(let y=y0;y<=2019;y++)strip.insertAdjacentHTML('beforeend','<span>'+y+'</span>');
   $('#rwLbl').textContent=UI.rwLbl;$('#rwDate').textContent=UI.months[5]+' 2018';
@@ -101,7 +101,7 @@ function wake(){
     GL.starSweep=e;   // the stars sweep past with the rewind: slow, fast, slow
     if(k<1){requestAnimationFrame(step);return}
     $('#rwDate').textContent=UI.rwLand;$('#rwLbl').textContent=UI.rwLandLbl;
-    later(()=>{phase='timeline';slide=0;update();showSlide()},1400);
+    later(()=>{phase='timeline';slide=0;if(GL.ready)GL.presentation(false);update();showSlide()},1400);
   };
   // the dust parts; "Opportunity is awake" fades in at 1.3 s and stays alone for a few seconds;
   // then the date and ruler fade in (JUN 2018), and the rewind starts rolling
@@ -418,7 +418,8 @@ init(){
   this.o=new THREE.OrbitControls(this.c,this.r.domElement);
   this.o.enableDamping=true;this.o.enablePan=false;this.o.enableZoom=true;
   this.o.zoomSpeed=.8;this.o.minDistance=4.2;this.o.maxDistance=16;   // keep the camera outside the rover and the rover in view
-  this.o.target.set(0,.9,0);
+  this.o.target.set(0,.9,0);this.o.update();this.o.saveState();
+  this.homeCamera={position:this.c.position.clone(),target:this.o.target.clone(),zoom:this.c.zoom};
   // missing parts: blueprint-blue fill + outline (pulses in tick), so they stand apart from the dusty model. The part in the open tab turns Mars orange.
   const gmat=(c,o,line)=>line?new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false}):new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false});
   this.gm=gmat(0x6ea8ff,.1);this.gl=gmat(0x8fbcff,.55,1);this.hot=gmat(0xc8553d,.3);this.hotl=gmat(0xff8a66,.9,1);
@@ -459,9 +460,9 @@ tick(){
   const w=this.r.domElement.width,h=this.r.domElement.height,k=w/innerWidth;
   let vt=0,vu=phase==='ready'?h*.11:phase==='rewind'?h*.13:phase==='ending'?h*.16:0,zt=1;
   if(phase==='timeline'){
-    // the free area: top left, between the ‹ arrow and the map, above the card at the bottom
-    const sl=$('#slide').getBoundingClientRect(),nv=$('#nav').getBoundingClientRect();
-    const L=innerWidth>760?96:16,R=nv.width?nv.left-24:innerWidth-16,T=innerWidth>760?76:60,B=sl.top-16;
+    // Keep Oppy directly above the event/story half of the card, instead of centering her in all the space left of the map.
+    const sl=$('#slide').getBoundingClientRect(),evr=$('#slide .ev').getBoundingClientRect();
+    const L=evr.width?evr.left:(innerWidth>760?96:16),R=evr.width?evr.right:innerWidth/2,T=innerWidth>760?76:60,B=sl.top-16;
     vt=(innerWidth/2-(L+R)/2)*k;vu=(innerHeight/2-(T+B)/2)*k;zt=Math.max(.35,Math.min(1,(R-L)/(innerWidth*.45),(B-T)/(innerHeight*.6)));
   }
   const e=1-Math.exp(-3.5*dt);this.vx+=(vt-this.vx)*e;this.vy+=(vu-this.vy)*e;this.c.zoom+=(zt-this.c.zoom)*e;
@@ -473,7 +474,14 @@ tick(){
   this.stormFx(t,dt);
   this.skyFx(dt);
   if(this.lights)this.lights.forEach(l=>l.intensity=l.userData.i*(1-this.sil*.8)*(1-this.storm*.25));   // the storm dims the sun
-  this.o.update();
+  if(this.cameraLock){
+    const q=Math.min(1,(t-this.cameraLock.at)/1.6),ease=q*q*(3-2*q);
+    this.c.position.lerpVectors(this.cameraLock.position,this.homeCamera.position,ease);
+    this.o.target.lerpVectors(this.cameraLock.target,this.homeCamera.target,ease);
+    this.c.zoom=this.cameraLock.zoom+(this.homeCamera.zoom-this.cameraLock.zoom)*ease;
+    this.c.updateProjectionMatrix();this.c.lookAt(this.o.target);
+    if(q===1)this.cameraLock=null;
+  }else this.o.update();
   this.groups.forEach(g=>{if(g.position.y>.002)g.position.y*=.86;else g.position.y=0});
   this.puff(dt);
   this.joints(t,dt);
@@ -688,6 +696,12 @@ stormFx(t,dt){
   this.sp.geometry.attributes.position.needsUpdate=true;this.sp.visible=true;this.sp.material.opacity=this.storm*.35;
 },
 wake(){this.wakeT=performance.now()/1000;this.sync();this.burst()},
+// The rewind is a composed animation: ease back to the full-rover camera and prevent pointer input from moving it until the story begins.
+presentation(on){
+  if(!this.o)return;
+  this.cameraLock=on?{at:performance.now()/1000,position:this.c.position.clone(),target:this.o.target.clone(),zoom:this.c.zoom}:null;
+  this.o.enabled=!on;
+},
 // Dust parting on wake: specks sampled from the rover's surfaces (mostly the up-facing ones, where the dust sits)
 // lift off, blow outward and up on a light wind, settle under weak gravity, and fade.
 // from: the groups the dust comes off (default: the whole rover). N: how many specks.
@@ -733,7 +747,7 @@ reset(){
   this.clearPuff();this.skyOn=false;this.starSweep=0;this.dust=this.dustT=.55;this.sil=this.silT=0;
   this.actN='';this.aimT=this.aimA=0;this.focus(-1);this.fk=0;this.cleanAt=-1;this.piv.forEach(p=>p.rotation.set(0,0,0));   // joints back to rest
   this.drvT=-9;this.gridZ=0;this.grid.position.z=0;   // stop driving, ground back to center
-  this.tint();this.sync();
+  this.presentation(false);this.o.reset();this.tint();this.sync();
 }
 };
 function readFile(f){

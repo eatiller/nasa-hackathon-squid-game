@@ -26,6 +26,8 @@ button:focus-visible{outline:2px solid var(--dust);outline-offset:3px}
 #gl{position:absolute;inset:0;display:none;cursor:grab}
 #gl canvas{display:block;width:100%;height:100%}
 #glHint{position:absolute;left:24px;bottom:62px;z-index:1;pointer-events:none;white-space:pre-line;line-height:1.7}
+body[data-phase=timeline] #glHint{left:124px;bottom:calc(60px + max(250px,38vh) + 12px)}
+body[data-phase=rewind] #glHint,body[data-phase=ending] #glHint{display:none}
 #ill{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);width:min(88vw,860px);height:auto}
 #stage.is3d #gl{display:block}#stage.is3d #ill{display:none}
 #stage.over{outline:1px dashed var(--dust);outline-offset:-8px}
@@ -110,7 +112,7 @@ body[data-phase=ready] #wakebox{animation:flicker .8s steps(1) .55s both}
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='14'%3E%3Cpath d='M11.67 14V8M23.33 14V8M35 14V8M46.67 14V8M58.33 14V8M70 14V3M81.67 14V8M93.33 14V8M105 14V8M116.67 14V8M128.33 14V8' stroke='%231c2b48' stroke-width='1'/%3E%3C/svg%3E") left bottom no-repeat}
 
 /* timeline layout: the card runs along the bottom (the event on the left, the conversation with Oppy on the right),
-   the rover sits top left (GL.tick fits it into the free area), the route map top right */
+   the rover sits directly above the event half (GL.tick positions it), the route map top right */
 #slide{position:absolute;left:96px;right:96px;bottom:60px;height:max(250px,38vh)}
 /* dust storm: a flat haze of Mars dust over the scene (the particles are in GL.stormFx) */
 #haze{position:absolute;inset:0;background:var(--mars);opacity:0;pointer-events:none}
@@ -239,6 +241,7 @@ details#map{margin-top:8px}
 
 /* narrow screens: panels become bottom sheets */
 @media (max-width:760px){
+  body[data-phase=timeline] #glHint{left:30px;bottom:calc(52px + 58vh + 10px)}
   body[data-input=browser][data-phase=build] #intro{bottom:306px}
   #partChoices{grid-template-columns:repeat(2,minmax(0,1fr))}
   .partChoice{min-height:92px}
