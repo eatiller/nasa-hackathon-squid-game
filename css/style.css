@@ -204,6 +204,8 @@ body[data-phase=ending] #again,body[data-phase=ending] #galBtn{animation:show .8
 #edition button.text.active{background:var(--signal);color:var(--space)}
 #edition button.text:hover{color:var(--dust)}
 #edition button.text.active:hover{color:var(--space)}
+#sound[aria-pressed="true"]{color:var(--signal)}
+#sound[aria-pressed="false"]{color:var(--mute)}
 body[data-phase=ending] #telemetry,body[data-phase=ending] #mark{opacity:.35}
 
 /* rover illustration (fallback when WebGL or the model is unavailable) */

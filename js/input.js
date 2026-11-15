@@ -40,7 +40,7 @@ async function openPort(p){
   try{await p.open({baudRate:115200})}
   catch(e){setPlat('Could not open the platform: '+e.message,'err');return}
   try{await p.setSignals({dataTerminalReady:true})}catch(e){}
-  port=p;open=true;btn.hidden=true;setPlat('Platform connected','ok');
+  port=p;open=true;btn.hidden=true;setPlat('Platform connected','ok');SND.cue('receive');
   readLoop(p);
 }
 async function readLoop(p){
@@ -121,6 +121,7 @@ addEventListener('keydown',e=>{
   else if(k==='arrowright')nav(1);
   else if(k==='r')reset();
   else if(k==='d')$('#tools').hidden=!$('#tools').hidden;
+  else if(k==='m')SND.toggle();
 });
 
 let initial=new URLSearchParams(location.search).get('mode')||'hardware';

@@ -12,7 +12,7 @@ The 3D model loads with `fetch`, so open the folder through a local web server (
 
 Then visit http://localhost:8000. The Browser edition works in any modern browser. The Hardware edition uses Web Serial, so open it in Chrome or Edge.
 
-The site opens in Hardware mode by default. Use the switch in the bottom telemetry bar to choose an edition. In Browser mode, select the four part cards on screen. In Hardware mode, connect the Teensy 4.1 or Pico 2 RFID platform and scan each part. Unknown RFID tags can be assigned from the model tools panel. In either edition, keys `1`–`4` provide a part-selection fallback; `Enter` presses the main button, `←`/`→` move through the timeline, `r` starts over, and `d` opens model tools.
+The site opens in Hardware mode by default. Use the switch in the bottom telemetry bar to choose an edition. In Browser mode, select the four part cards on screen. In Hardware mode, connect the Teensy 4.1 or Pico 2 RFID platform and scan each part. Unknown RFID tags can be assigned from the model tools panel. In either edition, keys `1`–`4` provide a part-selection fallback; `Enter` presses the main button, `←`/`→` move through the timeline, `r` starts over, and `d` opens model tools. Sound starts after the first interaction; use **Sound on/off** in the telemetry bar or press `m` to toggle it.
 
 ## Structure
 
@@ -20,12 +20,14 @@ The site opens in Hardware mode by default. Use the switch in the bottom telemet
 - `css/style.css` - styles (dark mission-console theme)
 - `js/data.js` - all on-screen text: parts, timeline, interface strings
 - `js/app.js` - game flow (`unlock(id)`, `add()`, `wake()`, `reset()`), Three.js model loading, UI
+- `js/sound.js` - ambient Mars audio, synthesized interaction cues, and sound preference
 - `docs/DESIGN.md` - design system and interaction flow
 - `js/input.js` - edition switch, Web Serial RFID input, tag assignment, and keyboard shortcuts
 - `assets/Mars Exploration Rover - Spirit and Opportunity.glb` - the NASA model (loaded first)
 - `assets/mer_small.glb` - compressed backup copy (textures resized to 1024 px)
 - `assets/img/` - NASA pictures shown in the timeline, plus `traverse.jpg` (the route map)
 - `assets/pano/` - NASA panoramas used as dimmed backdrops
+- `assets/audio/first-mars-sounds.m4a` - compressed copy of the supplied Perseverance Mars recording
 
 Three.js r128 is loaded from the jsDelivr CDN, so no build step is needed.
 
@@ -34,6 +36,8 @@ Three.js r128 is loaded from the jsDelivr CDN, so no build step is needed.
 3D model: "Spirit and Opportunity Rover, 3D Model", NASA/JPL-Caltech
 (https://science.nasa.gov/resource/spirit-and-opportunity-rover-3d-model/).
 The model is a generic Mars Exploration Rover. Check NASA's media usage guidelines before reuse.
+
+Ambient audio: the supplied first audio recording from Mars, captured by NASA's Perseverance rover. The web copy uses a two-second crossfade and sample-accurate Web Audio playback for a continuous low-volume loop.
 
 Images (resized copies from the NASA Photojournal, science.nasa.gov/photojournal):
 

@@ -47,7 +47,7 @@ function unlock(id){
   const i=PARTS.findIndex(p=>p.id===id);
   if(i<0||phase!=='build'||unlocked.has(id)||i===pending)return false;
   if(pending>=0)add();                                                    // selecting a new part commits the open one first
-  pending=i;update();
+  pending=i;SND.cue('detect');update();
   swap($('#tab'),()=>{fillTab(i);$('#add').focus({preventScroll:true})});
   return true;
 }
@@ -72,6 +72,7 @@ function fillTab(i){
 function add(){
   if(pending<0)return;
   const i=pending;pending=-1;unlocked.add(PARTS[i].id);
+  SND.cue('install');
   fold($('#tab'));
   if(unlocked.size===PARTS.length)phase='ready';
   update();if(GL.ready)GL.pop(i);
@@ -82,6 +83,7 @@ function add(){
 // ---- wake up and rewind to launch
 function wake(){
   if(phase!=='ready')return;
+  SND.cue('wake');
   phase='rewind';update();if(GL.ready)GL.wake();
   const strip=$('#rwStrip'),W=140,y0=2003,from=2018+5.5/12,to=2003+6/12,T=3400;let t0=0;
   strip.innerHTML='';for(let y=y0;y<=2019;y++)strip.insertAdjacentHTML('beforeend','<span>'+y+'</span>');
@@ -146,6 +148,7 @@ function downlink(i,done){
   const land=()=>{ph.classList.remove('arriving');if(s!==seq)return;if(GL.ready)GL.focus(-1);done()};
   later(()=>{
     if(s!==seq)return;
+    SND.cue('photo');
     const from=!CALM&&GL.ready&&GL.screenAt(cam);
     if(!from){openPhoto(i);land();return}   // no camera to fly from (reduced motion, other models): it just pops up
     const vf=document.createElement('i');vf.className='vf';vf.style.left=from.x+'px';vf.style.top=from.y+'px';document.body.appendChild(vf);
@@ -172,7 +175,7 @@ function nav(d){
   if(phase!=='timeline')return;
   const x=ev(),n=Math.max(0,Math.min(TIMELINE.length-1,slide+d));
   if(n===slide||(d>0&&x.tries&&tries<WAKE_TRIES))return;   // no skipping past the storm before the wake attempts
-  slide=n;showSlide();
+  SND.cue('nav');slide=n;showSlide();
 }
 // Talk to Oppy: k=0 wakes her up (status comes back), k>=1 gives instruction k (a part works, findings come back).
 // Your line shows straight away; her answer types in under it. After the last instruction her picture pops up.
@@ -180,7 +183,7 @@ function send(k){
   const x=ev(),s=seq,b=cardOpen(),tn=k?x.turns[k-1]:null;if(busy||!b)return;
   busy=true;b.disabled=true;
   if(tn&&tn.gap)gap(tn.gap);
-  say(tn?tn.cmd:UI.wake);
+  say(tn?tn.cmd:UI.wake);SND.cue('transmit');
   const act=tn?tn.act:'';
   if(GL.ready){if(!k)GL.aim(1);if(act){GL.act(act);GL.focus(PARTS.findIndex(p=>p.id===ACTP[act]))}}   // the antenna turns to Earth; the part does its job
   later(()=>{
@@ -188,6 +191,7 @@ function send(k){
     const lines=tn?tn.found||[]:[fmt(UI.goodMorning,{sol:x.sol.toLocaleString('en')})].concat(x.status.map(row));   // picture commands send no text: the picture pops up
     typeAll(lines,()=>{
       if(s!==seq)return;
+      if(lines.length)SND.cue('receive');
       if(x.tries&&!k)later(()=>{if(s===seq){say(UI.lost,'lost');fin()}},900);   // the storm card: the signal cuts out right after her status
       else fin();
     },!tn);
@@ -209,11 +213,12 @@ function tryWake(){
   const b=cardOpen(),s=seq;if(!b||busy)return;
   if(tries>=WAKE_TRIES){goodbye();return}
   busy=true;b.disabled=true;tries++;update();
-  say(UI.wake);
+  say(UI.wake);SND.cue('transmit');
   later(()=>{
     if(s!==seq)return;
     type(UI.tryLog[Math.min(tries,UI.tryLog.length)-1],()=>{
       if(s!==seq)return;
+      SND.cue('lost');
       const ok=()=>{busy=false;b.disabled=false;b.focus({preventScroll:true})};
       if(tries<WAKE_TRIES){ok();return}
       b.classList.add('fadeout');   // the wake-up button fades out, what really happened next fades in, then Good night, Oppy
@@ -303,6 +308,7 @@ function drawMap(at){
   const x=ev();$('#where').innerHTML=x.where+(x.km?'<span>'+x.km+'</span>':'');
 }
 function goodbye(){
+  SND.cue('ending');
   phase='ending';endAt=performance.now();seq++;
   fold($('#slide'));update();
   if(document.activeElement)document.activeElement.blur();
@@ -322,6 +328,7 @@ function primary(){
   else if(phase==='ending'&&performance.now()-endAt>6000)reset();
 }
 function reset(){
+  SND.cue('reset');
   timers.forEach(clearTimeout);timers=[];
   closePhoto();
   unlocked.clear();pending=-1;phase='build';slide=0;tries=0;step=0;busy=false;seq++;
