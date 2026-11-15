@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Build Opportunity</title>
+<meta name="description" content="Build NASA's Opportunity rover and explore her Mars mission in an interactive browser story.">
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -30,9 +31,11 @@
 <div id="haze"></div>
 
 <p id="mark"><b data-ui="title"></b><span data-ui="sub"></span></p>
-
 <div id="intro"><p class="cursor" data-ui="intro"></p><p class="keys" data-ui="introKeys"></p></div>
-
+<section id="parts" aria-label="Rover parts">
+  <p class="lbl">Choose a part to inspect</p>
+  <div id="partChoices"></div>
+</section>
 <aside id="tab" class="unfold" aria-live="polite">
 <i class="rule"></i>
 <div class="body frame">
@@ -73,20 +76,20 @@
 
 <footer id="telemetry">
 <span>MER-B</span><span id="tParts"></span><span id="tState"></span><span id="tSol"></span>
-<span><span id="plat" aria-live="polite">Platform not connected</span> <button class="text" id="connect" type="button">Connect</button></span>
+<span id="edition" role="group" aria-label="Input edition"><button id="browserMode" class="text active" type="button" aria-pressed="true">Browser</button><button id="hardwareMode" class="text" type="button" aria-pressed="false">Hardware</button></span>
+<span id="hardwareStatus" hidden><span id="plat" aria-live="polite">Platform not connected</span> <button class="text" id="connect" type="button">Connect</button></span>
 <span class="credit" data-ui="tCredit"></span>
 </footer>
 
-<section id="tools" hidden aria-label="Developer tools">
+<section id="tools" hidden aria-label="Model tools">
 <h3 data-ui="tools"></h3>
-<p id="sim"><span data-ui="sim"></span></p>
 <p><button class="ghost" id="pick" type="button">Load a different .glb</button><input type="file" id="file" accept=".glb,.gltf" hidden> <button class="ghost" id="toggle" type="button" hidden>Show illustration</button></p>
 <p id="msg">Loading NASA 3D model…</p>
 <details id="map" hidden><summary>Model mapping</summary><pre id="maptxt"></pre></details>
-<div id="dev">
+<div id="dev" hidden>
 <h3>RFID tags</h3>
 <ul id="tags"></ul>
-<p>Copy into <code>js/data.js</code> to keep:</p><pre id="saved"></pre>
+<p>Assign unknown tags to rover parts:</p><pre id="saved"></pre>
 <button class="ghost" id="clearTags" type="button">Forget assigned tags</button>
 <p>Last serial lines:</p><pre id="rawlog"></pre>
 </div>

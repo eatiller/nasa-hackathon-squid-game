@@ -1,26 +1,13 @@
-// Inputs: RFID platform (Teensy 4.1 or Pico 2 over USB serial) and keyboard. They only call unlock(id), add(), primary(), nav(d) and reset() from app.js.
-// The platform can only unlock parts; resetting is up to the user (Start over button or the r key).
-//
-// Serial lines understood (case-insensitive, everything else is ignored):
-//   UID:93e39a92              agreed protocol: tag UID as hex
-//   Card UID: 93 E3 9A 92     rfid_nasa/src/main.cpp (Teensy 4.1, Arduino MFRC522 library) and PICC_DumpToSerial
-//   TAG_DETECTED,93E39A92     Mechatronics/RFID_Project/RFID_Project.c (Pico 2); TAG_REMOVED is ignored
-//   Uid is: 93 e3 9a 92       Mechatronics/RFID_Project/example.c (%x, unpadded bytes)
-//   ADD:<part id>             firmware did the mapping itself
-//   READY / DEBUG,READY,...   platform booted
-//   ERROR,...                 reader problem (e.g. ERROR,RC522_SPI_NOT_RESPONDING): shown in the status
-// Keys: 1-4 place PARTS[0-3], Enter presses the main button on screen, left/right walk the timeline, r resets, d toggles the tools panel.
+// Switchable input: on-screen controls or an RFID platform over Web Serial.
 (()=>{
 const $=s=>document.querySelector(s);
-const BOARDS=[{usbVendorId:0x16c0},          // PJRC Teensy (rfid_nasa, the board in use)
-              {usbVendorId:0x2e8a}];         // Raspberry Pi Pico (Pico SDK stdio_usb)
-const LS='uidMap';                           // tags assigned in the dev panel, kept in this browser
+const BOARDS=[{usbVendorId:0x16c0},{usbVendorId:0x2e8a}];
+const TAGS_KEY='uidMap',MODE_KEY='opportunityInputMode';
 const btn=$('#connect'),plat=$('#plat');
 let port=null,open=false;
 const seenUnknown=new Map(),rawLog=[];
+let saved={};try{saved=JSON.parse(localStorage.getItem(TAGS_KEY)||'{}')}catch(e){}
 
-// ---- UID -> part
-let saved={};try{saved=JSON.parse(localStorage.getItem(LS)||'{}')}catch(e){}
 function partFor(uid){
   if(saved[uid])return saved[uid];
   const p=PARTS.find(p=>(p.uids||[]).some(u=>u.toLowerCase()===uid));
@@ -28,11 +15,11 @@ function partFor(uid){
 }
 function normUid(t){
   const b=t.trim().split(/[\s:-]+/);
-  // Spaced bytes: keep the last 2 digits of each. PICC_DumpToSerial prints 0x05 as "005" and 0x93 as "FFFFFF93".
   return (b.length>1?b.map(x=>x.padStart(2,'0').slice(-2)).join(''):b[0]).toLowerCase();
 }
+function setPlat(text,state){plat.textContent=text;plat.dataset.state=state||''}
+function log(s){rawLog.push(s);if(rawLog.length>12)rawLog.shift();$('#rawlog').textContent=rawLog.join('\n')}
 
-// ---- line parsing
 const UID_RE=/^(?:uid|uid is|card uid|tag_detected)\s*[:,]?\s*((?:[0-9a-f]+[\s:-]+)*[0-9a-f]+)$/i;
 function handleLine(raw){
   const s=raw.trim();if(!s)return;
@@ -40,6 +27,7 @@ function handleLine(raw){
   let m;
   if(/^(?:debug,)?ready\b|^rfid reader ready/i.test(s)){setPlat('Platform ready','ok');return}
   if(/^error,/i.test(s)){setPlat('Reader problem: '+s.slice(6),'err');return}
+  if(inputMode!=='hardware')return;
   if((m=s.match(/^add\s*:\s*([a-z0-9_]+)$/i))){unlock(m[1].toLowerCase());return}
   if((m=s.match(UID_RE))){
     const uid=normUid(m[1]),id=partFor(uid);
@@ -47,13 +35,11 @@ function handleLine(raw){
   }
 }
 
-// ---- Web Serial
-function setPlat(text,state){plat.textContent=text;plat.dataset.state=state||''}
 async function openPort(p){
   if(open)return;
   try{await p.open({baudRate:115200})}
   catch(e){setPlat('Could not open the platform: '+e.message,'err');return}
-  try{await p.setSignals({dataTerminalReady:true})}catch(e){}   // the Teensy sketch waits for DTR (while(!Serial)) before it starts
+  try{await p.setSignals({dataTerminalReady:true})}catch(e){}
   port=p;open=true;btn.hidden=true;setPlat('Platform connected','ok');
   readLoop(p);
 }
@@ -63,67 +49,82 @@ async function readLoop(p){
     const reader=p.readable.getReader();
     try{
       for(;;){
-        const {value,done}=await reader.read();
-        if(done)break;
-        buf+=dec.decode(value,{stream:true});
-        let i;
+        const {value,done}=await reader.read();if(done)break;
+        buf+=dec.decode(value,{stream:true});let i;
         while((i=buf.search(/[\r\n]/))>=0){handleLine(buf.slice(0,i));buf=buf.slice(i+1)}
         if(buf.length>2000)buf='';
       }
-    }catch(e){/* device unplugged or a read error: fall through */}
+    }catch(e){}
     finally{reader.releaseLock()}
     if(!open)break;
   }
   try{await p.close()}catch(e){}
   if(port===p){port=null;open=false;btn.hidden=false;setPlat('Platform unplugged','err')}
 }
+async function autoConnect(){
+  if(!('serial' in navigator)||open||inputMode!=='hardware')return;
+  const ps=await navigator.serial.getPorts();if(ps.length)openPort(ps[0]);
+}
+
+function setInputMode(next){
+  inputMode=next==='hardware'?'hardware':'browser';
+  try{localStorage.setItem(MODE_KEY,inputMode)}catch(e){}
+  document.body.dataset.input=inputMode;
+  const browser=inputMode==='browser';
+  $('#browserMode').classList.toggle('active',browser);
+  $('#hardwareMode').classList.toggle('active',!browser);
+  $('#browserMode').setAttribute('aria-pressed',String(browser));
+  $('#hardwareMode').setAttribute('aria-pressed',String(!browser));
+  $('#hardwareStatus').hidden=browser;
+  $('[data-ui="intro"]').textContent=browser?'Build Opportunity':'Place a part on the platform';
+  $('[data-ui="introKeys"]').textContent=browser?'Select each part below, then explore her journey.':'';
+  $('#dev').hidden=browser;
+  update();
+  if(!browser)autoConnect();
+}
+$('#browserMode').onclick=()=>setInputMode('browser');
+$('#hardwareMode').onclick=()=>setInputMode('hardware');
+
 if('serial' in navigator){
   btn.onclick=async()=>{
     try{await openPort(await navigator.serial.requestPort({filters:BOARDS}))}
     catch(e){if(e.name!=='NotFoundError')setPlat('Could not connect: '+e.message,'err')}
   };
-  // Reconnect to a port this site was already allowed to use, on load and when it's plugged back in.
-  const auto=async()=>{const ps=await navigator.serial.getPorts();if(ps.length&&!open)openPort(ps[0])};
-  navigator.serial.addEventListener('connect',auto);
-  navigator.serial.addEventListener('disconnect',e=>{if(e.target===port){open=false}});
-  setPlat('Platform not connected','');
-  auto();
+  navigator.serial.addEventListener('connect',autoConnect);
+  navigator.serial.addEventListener('disconnect',e=>{if(e.target===port)open=false});
 }else{
-  btn.hidden=true;
-  setPlat('No Web Serial (use Chrome or Edge)','err');
+  btn.hidden=true;setPlat('Web Serial needs Chrome or Edge','err');
 }
 
-// ---- keyboard
+function unknown(uid){
+  seenUnknown.set(uid,(seenUnknown.get(uid)||0)+1);
+  $('#tools').hidden=false;$('#dev').hidden=false;renderTags();
+}
+function renderTags(){
+  const opts='<option value="">Assign to…</option>'+PARTS.map(p=>'<option value="'+p.id+'">'+p.name+'</option>').join('');
+  $('#tags').innerHTML=[...seenUnknown.keys()].map(u=>'<li><code>'+u+'</code><select data-uid="'+u+'">'+opts+'</select></li>').join('')||'<li>None yet. Place a tag on the platform.</li>';
+  $('#tags').querySelectorAll('select').forEach(s=>s.onchange=()=>{
+    if(!s.value)return;
+    saved[s.dataset.uid]=s.value;try{localStorage.setItem(TAGS_KEY,JSON.stringify(saved))}catch(e){}
+    seenUnknown.delete(s.dataset.uid);renderTags();unlock(s.value);
+  });
+  $('#saved').textContent=PARTS.map(p=>p.name+': '+Object.keys(saved).filter(u=>saved[u]===p.id).join(', ')).join('\n');
+}
+$('#clearTags').onclick=()=>{saved={};try{localStorage.removeItem(TAGS_KEY)}catch(e){}renderTags()};
+renderTags();
+
 addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
   const k=e.key.toLowerCase(),n=parseInt(k,10);
   if(n>=1&&n<=PARTS.length)unlock(PARTS[n-1].id);
-  else if(k==='enter'){if(e.target.tagName!=='BUTTON'){e.preventDefault();primary()}}   // a focused button handles Enter itself
+  else if(k==='enter'&&e.target.tagName!=='BUTTON'){e.preventDefault();primary()}
   else if(k==='arrowleft')nav(-1);
   else if(k==='arrowright')nav(1);
   else if(k==='r')reset();
   else if(k==='d')$('#tools').hidden=!$('#tools').hidden;
-  else if(k==='m'&&typeof SND!=='undefined')SND.toggle();   // sound is optional
 });
 
-// ---- dev panel: raw serial log + register unknown tags
-function log(s){rawLog.push(s);if(rawLog.length>12)rawLog.shift();$('#rawlog').textContent=rawLog.join('\n')}
-function unknown(uid){
-  seenUnknown.set(uid,(seenUnknown.get(uid)||0)+1);
-  $('#tools').hidden=false;
-  renderTags();
-}
-function renderTags(){
-  const opts='<option value="">Assign to…</option>'+PARTS.map(p=>'<option value="'+p.id+'">'+p.name+'</option>').join('');
-  const rows=[...seenUnknown.keys()].map(u=>'<li><code>'+u+'</code><select data-uid="'+u+'">'+opts+'</select></li>');
-  $('#tags').innerHTML=rows.join('')||'<li>None yet. Place a tag on the platform.</li>';
-  $('#tags').querySelectorAll('select').forEach(s=>s.onchange=()=>{
-    if(!s.value)return;
-    saved[s.dataset.uid]=s.value;try{localStorage.setItem(LS,JSON.stringify(saved))}catch(e){}
-    seenUnknown.delete(s.dataset.uid);renderTags();unlock(s.value);
-  });
-  $('#saved').textContent=PARTS.map(p=>p.id+": uids:["+[...(p.uids||[]),...Object.keys(saved).filter(u=>saved[u]===p.id)].map(u=>"'"+u+"'").join(',')+"]").join('\n');
-}
-$('#clearTags').onclick=()=>{saved={};try{localStorage.removeItem(LS)}catch(e){}renderTags()};
-renderTags();
+let initial=new URLSearchParams(location.search).get('mode')||'browser';
+try{initial=new URLSearchParams(location.search).get('mode')||localStorage.getItem(MODE_KEY)||'browser'}catch(e){}
+setInputMode(initial);
 })();

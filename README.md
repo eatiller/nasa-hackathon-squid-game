@@ -2,7 +2,7 @@
 
 # Build Opportunity
 
-An interactive site where kids rebuild NASA's Opportunity rover one part at a time. Each part placed on the RFID platform opens a tab with that part's 3D model and facts; **Add to rover** snaps it onto the floating rover. With all four parts (solar array, arm, camera mast, wheels) on, **Wake up, Oppy** appears: the rover shakes off its dust, the date rewinds to launch day, and an interactive timeline walks through the mission. On each of its 7 cards you talk to Oppy like the mission team did: **Wake up, Oppy** gets a status report back. Then you give her one instruction (take a picture, study a rock, drive, check the panels…). The part that does the job moves on the 3D rover, her findings come back, and her real NASA picture pops up. A map shows her route, and a dimmed NASA panorama of each place sits behind her. On the last card, after the 2018 dust storm, nobody answers the wake-up calls. Then you say **Good night, Oppy**, the rover fades to a silhouette, and a **Photo gallery** button shows the pictures she sent home. Along the way: her 90th sol, getting stuck in (and backing out of) Purgatory Dune, and a wind gust cleaning her panels.
+An interactive site where kids rebuild NASA's Opportunity rover one part at a time. The site can switch between a **Browser** edition with on-screen part controls and a **Hardware** edition driven by the RFID platform. Selecting or scanning a part opens its 3D model and facts; **Add to rover** snaps it onto the floating rover. With all four parts (solar array, arm, camera mast, wheels) on, **Wake up, Oppy** appears and an interactive timeline walks through the mission.
 
 ## Run locally
 
@@ -10,9 +10,9 @@ The 3D model loads with `fetch`, so open the folder through a local web server (
 
     python3 -m http.server 8000
 
-Then visit http://localhost:8000 in Chrome or Edge (Web Serial is needed for the RFID platform).
+Then visit http://localhost:8000. The Browser edition works in any modern browser. The Hardware edition uses Web Serial, so open it in Chrome or Edge.
 
-Controls: plug in the RFID reader (Teensy 4.1 running `rfid_nasa/`, or a Pico 2 running `Mechatronics/RFID_Project/`) and click **Connect** in the bottom strip once (the browser remembers it). Without hardware: keys `1`–`4` place parts, `Enter` presses the main button on screen, `←`/`→` move through the timeline, `r` starts over, and `d` opens the developer tools.
+Use the switch in the bottom telemetry bar to choose an edition. In Browser mode, select the four part cards on screen. In Hardware mode, connect the Teensy 4.1 or Pico 2 RFID platform and scan each part. Unknown RFID tags can be assigned from the model tools panel. In either edition, keys `1`–`4` provide a part-selection fallback; `Enter` presses the main button, `←`/`→` move through the timeline, `r` starts over, and `d` opens model tools.
 
 ## Structure
 
@@ -21,7 +21,7 @@ Controls: plug in the RFID reader (Teensy 4.1 running `rfid_nasa/`, or a Pico 2 
 - `js/data.js` - all on-screen text: parts, timeline, interface strings
 - `js/app.js` - game flow (`unlock(id)`, `add()`, `wake()`, `reset()`), Three.js model loading, UI
 - `docs/DESIGN.md` - design system and interaction flow
-- `js/input.js` - RFID platform over Web Serial, keyboard shortcuts, dev panel for registering tags
+- `js/input.js` - edition switch, Web Serial RFID input, tag assignment, and keyboard shortcuts
 - `assets/Mars Exploration Rover - Spirit and Opportunity.glb` - the NASA model (loaded first)
 - `assets/mer_small.glb` - compressed backup copy (textures resized to 1024 px)
 - `assets/img/` - NASA pictures shown in the timeline, plus `traverse.jpg` (the route map)

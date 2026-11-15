@@ -1,8 +1,8 @@
 // Game state, 3D loader (Three.js), and UI wiring.
-// Inputs (RFID platform and keyboard in input.js) only call unlock(id), add(), primary(), nav(d) and reset().
-// Flow: build (place parts) -> ready (Wake up, Oppy) -> rewind (date rolls back to launch) -> timeline (slides) -> ending (silhouette) -> reset.
+// On-screen part choices and keyboard shortcuts call unlock(id), add(), primary(), nav(d) and reset().
+// Flow: build (select parts) -> ready (Wake up, Oppy) -> rewind -> timeline -> ending -> reset.
 const unlocked=new Set();
-let phase='build',pending=-1,slide=0,tries=0,endAt=0,timers=[],step=0,busy=false,seq=0;
+let phase='build',pending=-1,slide=0,tries=0,endAt=0,timers=[],step=0,busy=false,seq=0,inputMode='browser';
 const $=s=>document.querySelector(s);
 const has=i=>unlocked.has(PARTS[i].id);
 const pad=n=>String(n).padStart(2,'0');
@@ -25,6 +25,14 @@ function update(){
   $('#tParts').textContent=UI.tParts+' '+unlocked.size+'/'+PARTS.length;
   $('#tState').textContent=UI.state[phase];
   $('#intro').classList.toggle('gone',unlocked.size>0||pending>=0);
+  $('#parts').hidden=phase!=='build'||inputMode!=='browser';
+  document.querySelectorAll('#partChoices button').forEach((b,i)=>{
+    const installed=has(i),selected=pending===i;
+    b.disabled=installed||selected;
+    b.classList.toggle('installed',installed);
+    b.classList.toggle('selected',selected);
+    b.querySelector('.partStatus').textContent=installed?'Installed':selected?'Selected':'Inspect part';
+  });
   PARTS.forEach((p,i)=>{const g=$('#p-'+p.id);if(g){g.classList.toggle('on',has(i));g.classList.toggle('pend',i===pending)}});
   const r=$('#rover');
   r.classList.toggle('dusty',phase==='build'||phase==='ready'||tries>0);
@@ -34,11 +42,11 @@ function update(){
 }
 
 // ---- building
-// Called by every input when a part is placed. Opens the part tab; the part joins the rover on add().
+// Opens the part tab; the part joins the rover on add().
 function unlock(id){
   const i=PARTS.findIndex(p=>p.id===id);
-  if(i<0||phase!=='build'||unlocked.has(id)||i===pending)return false;   // tags are ignored after the build
-  if(pending>=0)add();                                                    // a new tag commits the open one first
+  if(i<0||phase!=='build'||unlocked.has(id)||i===pending)return false;
+  if(pending>=0)add();                                                    // selecting a new part commits the open one first
   pending=i;update();
   swap($('#tab'),()=>{fillTab(i);$('#add').focus({preventScroll:true})});
   return true;
@@ -332,7 +340,12 @@ $('#wakeBtn').onclick=wake;
 $('#prev').onclick=()=>nav(-1);
 $('#next').onclick=()=>nav(1);
 $('#again').onclick=reset;
-PARTS.forEach((p,i)=>{const b=document.createElement('button');b.className='ghost';b.type='button';b.textContent=i+1;b.title=p.name;b.onclick=()=>unlock(p.id);$('#sim').appendChild(b)});
+PARTS.forEach((p,i)=>{
+  const b=document.createElement('button');b.type='button';b.className='partChoice';
+  b.innerHTML='<span class="partNumber">'+pad(i+1)+'</span><span class="partName">'+p.name+'</span><span class="partStatus">Inspect part</span>';
+  b.setAttribute('aria-label','Inspect '+p.name);b.onclick=()=>unlock(p.id);
+  $('#partChoices').appendChild(b);
+});
 
 const msg=t=>$('#msg').textContent=t;
 // Model materials -> part id. Anything not listed (body, deck, antennas) is the base, which is always shown.
