@@ -5,19 +5,19 @@ const PARTS=[
 {id:'solar',uids:[],name:'Solar array',tag:'The power',
 desc:'Triple-junction solar cells on the top deck recharge the rover’s batteries every day, so it can work without any fuel.',
 specs:[['Cell type','Triple-junction GaAs'],['Peak output','About 140 W'],['Area','About 1.3 m²']],
-fact:'Dust slowly dimmed the panels. Gusts of wind sometimes blew them clean, which gave the mission years of extra life.'},
+fact:'At the start of the mission the solar panels could provide up to around 900 watt-hours (Wh) per day to recharge the battery and power system. Dust slowly dimmed the panels, but gusts of wind sometimes blew them clean, which gave the mission years of extra life. '},
 {id:'arm',uids:[],name:'Instrument deployment device',tag:'The arm',
 desc:'A robotic arm with a turret at the end. It places four tools against rocks and soil so the rover can study them up close.',
-specs:[['Tool 1','Rock Abrasion Tool'],['Tool 2','Microscopic Imager'],['Tools 3 and 4','Mössbauer and APXS spectrometers']],
-fact:'The Rock Abrasion Tool grinds away a rock’s weathered surface to expose fresh material underneath.'},
+specs:[['Tool 1','Rock Abrasion Tool (RAT)'],['Tool 2','Microscopic Imager (MI)'],['Tools 3 and 4','Mössbauer (MB) and Alpha particle X-ray (APXS) spectrometers']],
+fact:'The MB was used for close-up investigations of the minerology of iron-bearing rocks and soils while the APXS allowed for close-up analysis of the abundances of elements that make up rocks and soils. The MI obtained close-up, high-resolution images of rocks and soils while the RAT exposed fresh material for examination.'},
 {id:'camera',uids:[],name:'Pancam mast assembly',tag:'The eyes',
 desc:'A mast lifts the Panoramic Camera pair and navigation cameras about 1.5 m above the ground to scout the terrain ahead.',
-specs:[['Cameras','Pancam and Navcam'],['Filters','13 geology filters'],['Eye height','About 1.5 m']],
-fact:'Pancam’s color filters let scientists tell different minerals apart from a distance.'},
+specs:[['Cameras','Pancam and Navcam'],['Filters','13 geology filters'],['Eye height','1.4 meters tall (about 5 feet)']],
+fact:'The height gives the cameras a wide field of view. The pancam mast assembly acts as a periscope for the science instrument that is housed inside the rover body for thermal reasons and provides a better point of view for the Pancams and the Navcams. The Pancams examined the texture, color, mineralogy, and structure of the local terrain, while the Navcams was used for navigation and driving.'},
 {id:'wheels',uids:[],name:'Wheels and rocker-bogie suspension',tag:'The legs',
-desc:'Six aluminum wheels, each with its own motor, on a pivoting suspension that keeps all wheels on the ground over rocks and sand.',
-specs:[['Wheels','6, each 26 cm across'],['Steering','Front and rear pairs'],['Top speed','About 5 cm per second']],
-fact:'On Mars, the rover rarely moved faster than a few meters per hour, because it stopped often to check for hazards.'}
+desc:'Six wheels, each with its own motor, on a pivoting suspension that keeps all wheels on the ground over rough terrain.',
+specs:[['Wheels','6, each 26 cm across'],['Steering','Front and rear pairs'],['Top speed','About 5 cm per second/0.18 kilometers per hour']],
+fact:'The vehicle was steered at front and rear and was designed to operate safely at tilts of up to 30 degrees. On Mars, the rover rarely moved faster than a few meters per hour, because it stopped often to check for hazards.'}
 ];
 // The timeline: one card per event. On each card you wake Oppy (she sends a status report),
 // then give her instructions (a part does the job, she sends findings, and her picture pops up).

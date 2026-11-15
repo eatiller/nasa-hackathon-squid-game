@@ -38,6 +38,10 @@ Three.js r128 is loaded from the jsDelivr CDN, so no build step is needed.
 (https://science.nasa.gov/resource/spirit-and-opportunity-rover-3d-model/).
 The model is a generic Mars Exploration Rover. Check NASA's media usage guidelines before reuse.
 
+Rover part and instrument information:
+- NASA, [Mars Exploration Rover Panoramic Camera Mast Assembly](https://science.nasa.gov/resource/mars-exploration-rover-panoramic-camera-mast-assembly/)
+- [Opportunity (rover)](https://en.wikipedia.org/wiki/Opportunity_(rover))
+
 Ambient audio: the supplied first audio recording from Mars, captured by NASA's Perseverance rover. The web copy repairs an isolated clipped peak, keeps 3 dB of headroom, and uses a two-second crossfade with sample-accurate Web Audio playback for a continuous low-volume loop.
 
 Images (resized copies from the NASA Photojournal, science.nasa.gov/photojournal):
