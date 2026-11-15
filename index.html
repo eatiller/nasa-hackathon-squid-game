@@ -9,6 +9,7 @@
 </head>
 <body data-phase="build">
 <main id="stage">
+<div id="pano" aria-hidden="true"><i></i><i></i></div>
 <svg id="ill" viewBox="0 0 640 360" role="img" aria-label="Side view of the Opportunity rover as it is assembled">
 <rect y="300" width="640" height="1" fill="var(--line)"/>
 <g id="rover" class="dusty">
@@ -52,13 +53,26 @@
 
 <button id="prev" class="arrow ov" type="button" data-aria="prev">‹</button>
 <button id="next" class="arrow ov" type="button" data-aria="next">›</button>
-<div id="media" class="frame ov" hidden></div>
+<div id="nav" class="frame ov"><p class="lbl" data-ui="navHead"></p>
+<svg viewBox="10 0 380 390" preserveAspectRatio="xMinYMin slice" role="img" aria-label="Map of Opportunity's route across Meridiani Planum">
+<image href="assets/img/traverse.jpg" width="550" height="390"/><polyline id="route"/><polyline id="trail"/><g id="dot"><rect x="-5" y="-5" width="10" height="10"/></g>
+</svg><p id="where"></p></div>
 <section id="slide" class="unfold ov" aria-live="polite"><i class="rule"></i><div class="body frame" id="slBody"></div></section>
 
-<div id="ending" class="ov"><h2 data-ui="endTitle"></h2><p class="when" data-ui="endDates"></p><p data-ui="epitaph"></p><button id="again" type="button" data-ui="again"></button></div>
+<div id="ending" class="ov"><h2 data-ui="endTitle"></h2><p class="when" data-ui="endDates"></p><p data-ui="epitaph"></p><button id="again" type="button" data-ui="again"></button><button id="galBtn" class="ghost" type="button" data-ui="gallery"></button></div>
+
+<aside id="photo" class="unfold" aria-live="polite">
+<i class="rule"></i>
+<div class="body frame">
+<div id="phImg"></div>
+<div id="phHead"></div>
+<p id="phNav"><button class="ghost" id="phPrev" type="button" data-aria="prev">‹</button><button class="ghost" id="phNext" type="button" data-aria="next">›</button></p>
+<button id="phClose" type="button"></button>
+</div>
+</aside>
 
 <footer id="telemetry">
-<span>MER-B</span><span id="tParts"></span><span id="tState"></span>
+<span>MER-B</span><span id="tParts"></span><span id="tState"></span><span id="tSol"></span>
 <span><span id="plat" aria-live="polite">Platform not connected</span> <button class="text" id="connect" type="button">Connect</button></span>
 <span class="credit" data-ui="tCredit"></span>
 </footer>

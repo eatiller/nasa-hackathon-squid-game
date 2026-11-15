@@ -2,7 +2,7 @@
 // Inputs (RFID platform and keyboard in input.js) only call unlock(id), add(), primary(), nav(d) and reset().
 // Flow: build (place parts) -> ready (Wake up, Oppy) -> rewind (date rolls back to launch) -> timeline (slides) -> ending (silhouette) -> reset.
 const unlocked=new Set();
-let phase='build',pending=-1,slide=0,tries=0,endAt=0,timers=[];
+let phase='build',pending=-1,slide=0,tries=0,endAt=0,timers=[],step=0,busy=false,seq=0;
 const $=s=>document.querySelector(s);
 const has=i=>unlocked.has(PARTS[i].id);
 const pad=n=>String(n).padStart(2,'0');
@@ -48,7 +48,12 @@ function fitTab(){
   const b=$('#tab .body'),inf=$('#tabInfo');
   for(let f=16;f>=9;f-=.5){b.style.fontSize=f+'px';if(inf.scrollHeight<=inf.clientHeight+1&&b.scrollHeight<=b.clientHeight+1)break}
 }
-addEventListener('resize',()=>{if(pending>=0)fitTab()});
+addEventListener('resize',()=>{if(pending>=0)fitTab();if(phase==='timeline')fitSlide();if(photo>=0)fitPhoto()});
+// Same for the timeline card's event text (left half of the card).
+function fitSlide(){
+  const e=$('#slide .ev');if(!e)return;
+  for(let f=16;f>=9;f-=.5){e.style.fontSize=f+'px';if(e.scrollHeight<=e.clientHeight+1)break}
+}
 function fillTab(i){
   const p=PARTS[i];
   $('#tabHead').innerHTML='<p class="lbl">'+UI.tabLabel+'<span>'+pad(i+1)+' / '+pad(PARTS.length)+'</span></p><p class="tag">'+p.tag+'</p><h2>'+p.name+'</h2>';
@@ -90,71 +95,238 @@ function wake(){
   };
   // the dust parts; "Opportunity is awake" fades in at 1.3 s and stays alone for a few seconds;
   // then the date and ruler fade in (JUN 2018), and the rewind starts rolling
-  later(()=>$('#rewind').classList.remove('intro'),4000);
-  later(()=>requestAnimationFrame(step),4700);
+  later(()=>$('#rewind').classList.remove('intro'),3000);
+  later(()=>requestAnimationFrame(step),3500);
 }
 
-// ---- timeline
-const slideFx=()=>(TIMELINE[slide][3]||{}).fx;
+// ---- timeline: on each card, wake Oppy (status report), then give her instructions one by one (a part works, findings come back),
+// and her picture pops up after the last one. Nothing moves on by itself: every step waits for the button (or Enter).
+// step: how many exchanges are done (0 asleep, 1 status received, 1+n after the nth instruction). busy: Oppy is answering.
+// seq: bumps on every card change, so callbacks from a card you already left do nothing.
+const ev=()=>TIMELINE[slide][3]||{};
+const fmt=(s,o)=>s.replace(/\{(\w+)\}/g,(m,k)=>o[k]);
+const ACTP={snap:'camera',pan:'camera',arm:'arm',drive:'wheels',back:'wheels',odo:'wheels',panels:'solar'};   // which part does each job
+const row=r=>(r[0]+' ').padEnd(18,'.')+' '+r[1];
+const turnsDone=x=>step>(x.turns||[]).length;   // woken up and every instruction given
 function showSlide(){
-  const t=TIMELINE[slide],last=slide===TIMELINE.length-1,x=t[3]||{};
-  $('#media').hidden=!x.media;$('#media').innerHTML=x.media||'';
+  const t=TIMELINE[slide],last=slide===TIMELINE.length-1,x=ev();
+  seq++;step=0;busy=false;closePhoto();
+  if(x.tries)tries=0;   // the storm card starts fresh (going back to it undoes the wake attempts)
   const hz=$('#haze');hz.classList.remove('gust');GL.gust(x.fx==='storm');
-  if(x.fx==='storm'){void hz.offsetWidth;hz.classList.add('gust')}   // restart the haze animation   // optional map/image/interaction for this event
-  $('#prev').hidden=slide===0;$('#next').hidden=last;
+  if(x.fx==='storm'){void hz.offsetWidth;hz.classList.add('gust')}   // restart the haze animation
+  $('#prev').hidden=slide===0;$('#next').hidden=last||!!x.tries;   // the storm card only moves on after the wake attempts
+  document.querySelectorAll('.fly,.vf').forEach(e=>e.remove());   // a picture still in flight from the card you left
+  pano(x.pano);$('#pano').classList.toggle('storm',x.fx==='storm');
+  const from=+($('#trail').dataset.at||0);drawMap(x.at);if(GL.ready&&x.at!==from)GL.drive(x.at>from?1:-1);   // she drives with the map dot
+  $('#tSol').textContent=UI.tSol+' '+x.sol.toLocaleString('en');
+  if(GL.ready){GL.focus(-1);GL.aim(0);GL.cleanAt=-1}
+  update();
   swap($('#slide'),()=>{
-    $('#slBody').innerHTML='<p class="lbl">'+UI.tlHead+'<span>'+pad(slide+1)+' / '+pad(TIMELINE.length)+'</span></p><p class="when">'+t[0]+'</p><h2>'+t[1]+'</h2><p>'+t[2]+'</p>'
-      +(last?'<div id="log"></div><button id="try" type="button">'+UI.wake+'</button>':'');
-    if(last){$('#try').onclick=tryWake;$('#try').focus({preventScroll:true})}
+    $('#slBody').innerHTML='<div class="ev"><p class="lbl">'+UI.tlHead+'<span'+(UI.tlHead?'':' class="solo"')+'>'+pad(slide+1)+' / '+pad(TIMELINE.length)+'</span></p><p class="when">'+t[0]+'</p><h2>'+t[1]+'</h2><p>'+t[2]+'</p></div>'
+      +'<div class="talk"><div id="log"></div><p class="btns"><button id="act" type="button">'+UI.wake+'</button>'
+      +'<button id="pic" class="ghost" type="button" hidden>'+UI.viewPic+'</button></p></div>';
+    $('#act').onclick=primary;$('#pic').onclick=()=>openPhoto(slide);fitSlide();
+    $('#act').focus({preventScroll:true});
   });
 }
+// Her picture arrives: a camera on the rover takes it (the mast turns, or the arm's Microscopic Imager for cam:'arm'),
+// then it flies out of that camera into the picture pop-up as the pop-up opens. Then done().
+function downlink(i,done){
+  const x=TIMELINE[i][3],s=seq,ph=$('#photo');
+  const cam=x.cam==='arm'?'arm':'mast',last=(x.turns||[]).slice(-1)[0],shot=cam==='mast'&&!(last&&/^(snap|pan)$/.test(last.act));
+  if(GL.ready){if(shot)GL.act('snap');GL.focus(PARTS.findIndex(p=>p.id===(cam==='arm'?'arm':'camera')))}
+  const land=()=>{ph.classList.remove('arriving');if(s!==seq)return;if(GL.ready)GL.focus(-1);done()};
+  later(()=>{
+    if(s!==seq)return;
+    const from=!CALM&&GL.ready&&GL.screenAt(cam);
+    if(!from){openPhoto(i);land();return}   // no camera to fly from (reduced motion, other models): it just pops up
+    const vf=document.createElement('i');vf.className='vf';vf.style.left=from.x+'px';vf.style.top=from.y+'px';document.body.appendChild(vf);
+    later(()=>{
+      vf.remove();if(s!==seq)return;
+      ph.classList.add('arriving');openPhoto(i);
+      let n=0;const fly=()=>{   // swap() fills the pop-up a moment later: wait for it, then fly into its picture frame
+        if(s!==seq||photo!==i){land();return}
+        if(!ph.classList.contains('open')&&n++<40){later(fly,30);return}
+        const r=$('#phImg').getBoundingClientRect(),f=document.createElement('img');
+        f.className='fly';f.src=x.img;f.alt='';
+        Object.assign(f.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});document.body.appendChild(f);
+        const k=.04,tx=from.x-r.left-r.width*k/2,ty=from.y-r.top-r.height*k/2;
+        f.animate([{transform:'translate('+tx+'px,'+ty+'px) scale('+k+')'},{transform:'none'}],{duration:800,easing:'cubic-bezier(.3,.1,.2,1)'})
+          .onfinish=()=>{land();requestAnimationFrame(()=>f.remove())};
+      };
+      fly();
+    },550);
+  },shot?900:400);
+}
+const cardOpen=()=>$('#slide').classList.contains('open')&&$('#act');   // the card has finished unfolding: its button is the live one
 function nav(d){
+  if(photo>=0){if(gallery)openPhoto(photo+d,true);return}   // ←/→ browse the gallery; a picture pop-up must be closed first
   if(phase!=='timeline')return;
-  const n=Math.max(0,Math.min(TIMELINE.length-1,slide+d));
-  if(n===slide)return;
-  if(slide===TIMELINE.length-1)tries=0;   // leaving the last screen undoes the wake attempts
-  slide=n;update();showSlide();
+  const x=ev(),n=Math.max(0,Math.min(TIMELINE.length-1,slide+d));
+  if(n===slide||(d>0&&x.tries&&tries<WAKE_TRIES))return;   // no skipping past the storm before the wake attempts
+  slide=n;showSlide();
 }
-// The last screen: try to wake Oppy WAKE_TRIES times, then say goodbye.
+// Talk to Oppy: k=0 wakes her up (status comes back), k>=1 gives instruction k (a part works, findings come back).
+// Your line shows straight away; her answer types in under it. After the last instruction her picture pops up.
+function send(k){
+  const x=ev(),s=seq,b=cardOpen(),tn=k?x.turns[k-1]:null;if(busy||!b)return;
+  busy=true;b.disabled=true;
+  if(tn&&tn.gap)gap(tn.gap);
+  say(tn?tn.cmd:UI.wake);
+  const act=tn?tn.act:'';
+  if(GL.ready){if(!k)GL.aim(1);if(act){GL.act(act);GL.focus(PARTS.findIndex(p=>p.id===ACTP[act]))}}   // the antenna turns to Earth; the part does its job
+  later(()=>{
+    if(s!==seq)return;
+    const lines=tn?tn.found||[]:[fmt(UI.goodMorning,{sol:x.sol.toLocaleString('en')})].concat(x.status.map(row));   // picture commands send no text: the picture pops up
+    typeAll(lines,()=>{
+      if(s!==seq)return;
+      if(x.tries&&!k)later(()=>{if(s===seq){say(UI.lost,'lost');fin()}},900);   // the storm card: the signal cuts out right after her status
+      else fin();
+    },!tn);
+  },act?2200:450);
+  function fin(){
+    if(GL.ready)GL.focus(-1);
+    step=k+1;busy=false;b.disabled=false;
+    const next=(x.turns||[])[step-1],done=turnsDone(x);
+    b.textContent=next?next.cmd:x.tries?UI.wake:UI.nextStop;
+    if(!(done&&x.img)){b.focus({preventScroll:true});return}
+    // her picture: busy until it has flown out of her camera into the pop-up, then See the picture can reopen it
+    busy=true;b.disabled=true;
+    later(()=>{if(s===seq)downlink(slide,()=>{busy=false;b.disabled=false;$('#pic').hidden=false})},400);
+  }
+}
+// The storm card: after the signal is lost, try to wake Oppy WAKE_TRIES times.
+// No answer: the button fades back in as Good night, Oppy, which goes to the ending.
 function tryWake(){
-  const b=$('#try');if(!b||b.disabled)return;
+  const b=cardOpen(),s=seq;if(!b||busy)return;
   if(tries>=WAKE_TRIES){goodbye();return}
-  b.disabled=true;tries++;update();
-  type(UI.tryLog[Math.min(tries,UI.tryLog.length)-1],()=>{
-    if(tries<WAKE_TRIES){b.disabled=false;return}
-    type(UI.tryEnd,()=>{b.textContent=UI.goodbye;b.disabled=false;b.focus({preventScroll:true})});
-  });
+  busy=true;b.disabled=true;tries++;update();
+  say(UI.wake);
+  later(()=>{
+    if(s!==seq)return;
+    type(UI.tryLog[Math.min(tries,UI.tryLog.length)-1],()=>{
+      if(s!==seq)return;
+      const ok=()=>{busy=false;b.disabled=false;b.focus({preventScroll:true})};
+      if(tries<WAKE_TRIES){ok();return}
+      b.classList.add('fadeout');   // the wake-up button fades out, what really happened next fades in, then Good night, Oppy
+      // what really happened types in like her other lines, one log line per piece, with a short pause after each
+      const R=UI.realLife,PAUSE=2000,line=i=>{
+        if(s!==seq)return;
+        if(i<R.length){type(R[i],()=>later(()=>line(i+1),PAUSE),1);return}
+        b.textContent=UI.goodbye;b.classList.remove('fadeout');b.classList.add('fadein');ok();
+      };
+      later(()=>line(0),900);
+    });
+  },700);
 }
-function type(s,done){
+// Your side of the conversation: shown at once, in the accent color. gap(): a time jump between instructions.
+function say(s,cls){const log=$('#log');if(!log)return;const p=document.createElement('p');p.className=cls||'you';p.textContent=s;log.appendChild(p);follow(log);return p}
+// Keep Oppy's side scrolled to the newest line.
+const follow=log=>{log.scrollTop=log.scrollHeight};
+const gap=s=>say(s,'gap');
+// Oppy's side: typewriter lines. fast: report speed (status and findings), otherwise the slower wake-attempt speed.
+function type(s,done,fast){
   const log=$('#log');if(!log)return;
   const p=document.createElement('p');log.appendChild(p);
   let i=0;const t=setInterval(()=>{
     if(!p.isConnected){clearInterval(t);return}
-    p.textContent=s.slice(0,++i);
-    if(i>=s.length){clearInterval(t);later(()=>p.isConnected&&done&&done(),500)}
-  },28);
+    p.textContent=s.slice(0,++i);follow(log);
+    if(i>=s.length){clearInterval(t);later(()=>p.isConnected&&done&&done(),fast?110:500)}
+  },fast?9:28);
+  return p;
+}
+function typeAll(lines,done,head){
+  const go=i=>{if(i>=lines.length){done();return}const p=type(lines[i],()=>go(i+1),1);if(p&&head&&!i)p.className='head'};
+  go(0);
+}
+// Picture pop-up (like the part tab): Oppy's picture for a card, or the photo gallery on the ending (gallery: ←/→ browse all of them).
+// photo: the TIMELINE index shown, or -1 when closed.
+let photo=-1,gallery=false;
+const PICS=()=>TIMELINE.map((t,i)=>i).filter(i=>(TIMELINE[i][3]||{}).img);
+function openPhoto(i,gal){
+  const P=PICS();if(gal)i=P[(P.indexOf(i)+P.length)%P.length]??P[0];   // gallery wraps around
+  if(i===undefined||!TIMELINE[i][3].img)return;
+  const browsing=gal&&gallery&&photo>=0;   // already in the gallery: change the picture and text in place, no fold
+  photo=i;gallery=!!gal;document.body.classList.add('pic');
+  const x=TIMELINE[i][3],n=P.indexOf(i);
+  (browsing?(el,f)=>f():swap)($('#photo'),()=>{
+    $('#phImg').innerHTML='<img alt="'+x.cap+'" src="'+x.img+'">';
+    $('#phImg img').onload=()=>requestAnimationFrame(fitPhoto);fitPhoto();   // fit the text again once the picture is in (layout can shift)
+    $('#phHead').innerHTML='<p class="lbl">'+(gal?UI.gallery+'<span>'+pad(n+1)+' / '+pad(P.length)+'</span>':UI.photoLbl)+'</p>'
+      +'<h2>'+x.cap+'</h2><p class="about">'+x.about+'</p><p class="credit">'+x.credit+'</p>'
+      +(gal?'<p class="fact">'+UI.galleryNote+'</p>':'');
+    $('#phNav').hidden=!gal;
+    $('#phClose').textContent=gal?UI.close:UI.backToOppy;
+    if(!browsing)$('#phClose').focus({preventScroll:true});
+  });
+}
+// Shrink the pop-up text until the text, the gallery buttons and Back to Oppy all fit.
+function fitPhoto(){
+  const h=$('#phHead'),b=$('#photo .body');
+  for(let f=16;f>=9;f-=.5){h.style.fontSize=f+'px';if(b.scrollHeight<=b.clientHeight+1)break}
+}
+function closePhoto(){
+  if(photo<0)return;
+  photo=-1;gallery=false;fold($('#photo'));document.body.classList.remove('pic');$('#photo').classList.remove('arriving');
+  const b=phase==='timeline'?$('#act'):phase==='ending'?$('#galBtn'):null;
+  if(b)later(()=>b.focus({preventScroll:true}),300);
+}
+// Backdrop: a dimmed NASA panorama of where she is. Two layers crossfade.
+function pano(src){
+  const a=$('#pano .on'),b=[...document.querySelectorAll('#pano i')].find(e=>e!==a);
+  if(a&&a.dataset.src===(src||''))return;
+  if(a)a.classList.remove('on');
+  if(src){b.style.backgroundImage='url("'+src+'")';b.dataset.src=src;b.classList.add('on')}
+}
+// The map: Opportunity's route so far (orange) over the faint full route, with a dot that drives to this card's stop.
+function drawMap(at){
+  const pts=TRAVERSE.map(p=>p.join(',')),r=$('#route'),tr=$('#trail'),dot=$('#dot');
+  r.setAttribute('points',pts.join(' '));
+  const from=+(tr.dataset.at||0),t0=performance.now(),D=CALM?0:1400;
+  tr.dataset.at=at;
+  const step=now=>{
+    const k=D?Math.min(1,(now-t0)/D):1,e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,f=from+(at-from)*e,i=Math.floor(f),u=f-i;
+    const a=TRAVERSE[i],b=TRAVERSE[Math.min(i+1,TRAVERSE.length-1)],x=a[0]+(b[0]-a[0])*u,y=a[1]+(b[1]-a[1])*u;
+    tr.setAttribute('points',pts.slice(0,i+1).concat(x+','+y).join(' '));
+    dot.setAttribute('transform','translate('+x+' '+y+')');
+    if(k<1&&tr.dataset.at==at)requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  const x=ev();$('#where').innerHTML=x.where+(x.km?'<span>'+x.km+'</span>':'');
 }
 function goodbye(){
-  phase='ending';endAt=performance.now();
+  phase='ending';endAt=performance.now();seq++;
   fold($('#slide'));update();
   if(document.activeElement)document.activeElement.blur();
   later(()=>$('#again').focus({preventScroll:true}),6800);
 }
-// Enter key: whatever the main button on screen is right now.
+// Enter key: whatever the main button on screen is right now (a picture pop-up first).
 function primary(){
+  if(photo>=0){if(!$('#photo').classList.contains('arriving'))closePhoto();return}   // not while her picture is still flying in
   if(phase==='build')add();
   else if(phase==='ready')wake();
-  else if(phase==='timeline'){if(slide===TIMELINE.length-1)tryWake();else nav(1)}
+  else if(phase==='timeline'){
+    const x=ev();if(busy)return;
+    if(!turnsDone(x))send(step);
+    else if(x.tries)tryWake();
+    else nav(1);
+  }
   else if(phase==='ending'&&performance.now()-endAt>6000)reset();
 }
 function reset(){
   timers.forEach(clearTimeout);timers=[];
-  unlocked.clear();pending=-1;phase='build';slide=0;tries=0;
-  fold($('#tab'));fold($('#slide'));$('#slBody').innerHTML='';$('#media').hidden=true;$('#haze').classList.remove('gust');GL.gust(false);
+  closePhoto();
+  unlocked.clear();pending=-1;phase='build';slide=0;tries=0;step=0;busy=false;seq++;
+  fold($('#tab'));fold($('#slide'));$('#slBody').innerHTML='';$('#haze').classList.remove('gust');GL.gust(false);
+  document.querySelectorAll('.fly,.vf').forEach(e=>e.remove());
+  pano(null);$('#trail').dataset.at=0;
   if(document.activeElement)document.activeElement.blur();
   if(GL.ready)GL.reset();
   update();
 }
+$('#phClose').onclick=closePhoto;$('#phPrev').onclick=()=>nav(-1);
+$('#phNext').onclick=()=>nav(1);
+$('#galBtn').onclick=()=>openPhoto(PICS()[0],true);
 $('#add').onclick=add;
 $('#wakeBtn').onclick=wake;
 $('#prev').onclick=()=>nav(-1);
@@ -165,6 +337,8 @@ PARTS.forEach((p,i)=>{const b=document.createElement('button');b.className='ghos
 const msg=t=>$('#msg').textContent=t;
 // Model materials -> part id. Anything not listed (body, deck, antennas) is the base, which is always shown.
 const MATMAP={tex_panels_n:'solar',tex_panels2_n:'solar',tex_arm:'arm',tex_mast:'camera',foil_silver:'camera',tex_suspension_n:'wheels'};
+// Materials that are always the base, whatever the mesh is called (the antenna boom is named HGAA_arm but isn't the robotic arm).
+const BASEMATS=['tex_body_n','tex_instruments','Silver'];
 // Fallback for other .glb files: match mesh names.
 const NAMES={solar:/solar|panel|array|cell/i,arm:/idd|arm|turret|instrument|tool|rat\b|drill/i,camera:/mast|pancam|navcam|camera|periscope/i,wheels:/wheel|rocker|bogie|suspens|strut|axle|tire|tyre/i};
 function stripTextures(buf){
@@ -203,6 +377,8 @@ function dusty(m){
 }
 // rig holds base + parts + ghosts so the whole rover can float. dust: 0 clean .. 1 dusty. sil: 0 normal .. 1 black silhouette.
 const GL={ready:false,groups:[],ghosts:[],base:null,mats:[],dust:.55,dustT:.55,sil:0,silT:0,vx:0,vy:0,wakeT:0,starA:0,starSweep:0,starDrift:0,skyOn:false,storm:0,stormT:0,stormEnd:0,
+piv:[],actN:'',actT:0,aimT:0,aimA:0,fi:-1,fk:0,cleanAt:-1,
+drvT:-9,drvD:0,DRV:1.4,drvV:2,wr:.33,gridA:0,gridZ:0,   // driving between cards: start, direction, length (s, same as the map dot), ground speed, wheel radius
 init(){
   if(this.r)return;
   const box=$('#gl'),w=box.clientWidth||640,h=box.clientHeight||360;
@@ -225,7 +401,16 @@ init(){
   // missing parts: blueprint-blue fill + outline (pulses in tick), so they stand apart from the dusty model. The part in the open tab turns Mars orange.
   const gmat=(c,o,line)=>line?new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false}):new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false});
   this.gm=gmat(0x6ea8ff,.1);this.gl=gmat(0x8fbcff,.55,1);this.hot=gmat(0xc8553d,.3);this.hotl=gmat(0xff8a66,.9,1);
-  this.DUST=new THREE.Color(0x8a4a30);this.SIL=new THREE.Color(0x000000);
+  this.hil=gmat(0xff8a66,.6,1);   // the part doing a job in the timeline gets a Mars-orange outline (pulses in tick)
+  // timeline ground: a faint line grid under the wheels that fades out around her (in the shader, so the pattern can
+  // slide while the fade stays put). It slides backward while she drives between cards (drive()).
+  const G=16,C=.5,gp=[];for(let v=-G/2;v<=G/2+1e-6;v+=C)gp.push(-G/2,0,v,G/2,0,v,v,0,-G/2,v,0,G/2);
+  const gg=new THREE.BufferGeometry();gg.setAttribute('position',new THREE.Float32BufferAttribute(gp,3));
+  this.gridM=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uC:{value:new THREE.Color(0x7f8fab)},uA:{value:0}},
+    vertexShader:'varying vec2 vW;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xz;gl_Position=projectionMatrix*viewMatrix*w;}',
+    fragmentShader:'uniform vec3 uC;uniform float uA;varying vec2 vW;void main(){gl_FragColor=vec4(uC,uA*(1.0-smoothstep(2.2,6.5,length(vW))));}'});
+  this.grid=new THREE.LineSegments(gg,this.gridM);this.grid.position.y=.002;this.grid.visible=false;this.s.add(this.grid);
+  this.DUST=new THREE.Color(0x8a4a30);this.SIL=new THREE.Color(0x000000);this.FOC=new THREE.Color(0x1a2740);   // FOC: parts not in focus fade toward --dark
   this.DUSTC=new THREE.Color(0xa35a3c);DUSTU.uDustCol.value=this.DUSTC.clone();DUSTU.uRig.value=this.rig.position;
   addEventListener('resize',()=>this.size());
   const loop=()=>{requestAnimationFrame(loop);this.tick()};loop();
@@ -235,7 +420,7 @@ size(){
   const b=$('#gl'),w=b.clientWidth,h=b.clientHeight;if(!w||!h||!this.r)return;this.r.setSize(w,h,false);this.c.aspect=w/h;this.c.fov=w<h?Math.min(70,28*h/w):40;this.c.updateProjectionMatrix()},   // widen the view on tall screens so the rover fits
 
 tint(){
-  this.mats.forEach(m=>m.color.copy(m.userData.c0).lerp(this.DUST,this.dust*.25).lerp(this.SIL,this.sil));
+  this.mats.forEach(m=>{m.color.copy(m.userData.c0).lerp(this.DUST,this.dust*.25);if(this.fk>.001&&m.userData.g!==this.fi)m.color.lerp(this.FOC,this.fk*.45);m.color.lerp(this.SIL,this.sil)});
   DUSTU.uDust.value=this.dust;DUSTU.uDustCol.value.copy(this.DUSTC).multiplyScalar(1-this.sil*.6);
   // dim the lights for the silhouette; the dust (not darkened by color) stays as faint specks on the black shape
   if(this.lights)this.lights.forEach(l=>l.intensity=l.userData.i*(1-this.sil*.8));
@@ -251,25 +436,30 @@ tick(){
   const sh=t-this.wakeT;this.rig.position.x=phase==='rewind'&&sh<1.4?Math.sin(sh*55)*.035*(1.4-sh):0;
   // move (and shrink) the model so panels never cover it
   const w=this.r.domElement.width,h=this.r.domElement.height,k=w/innerWidth;
-  let vt=0,vu=phase==='ready'?h*.11:phase==='rewind'||phase==='ending'?h*.13:0,zt=1;
+  let vt=0,vu=phase==='ready'?h*.11:phase==='rewind'?h*.13:phase==='ending'?h*.16:0,zt=1;
   if(phase==='timeline'){
-    if(innerWidth>760){
-      // the free area: right of the card, left of the › arrow, above the media slot (if this event has one)
-      const L=$('#slide').getBoundingClientRect().right+32,R=innerWidth-96,T=76,md=$('#media'),B=md.hidden?innerHeight-66:md.getBoundingClientRect().top-16;
-      vt=(innerWidth/2-(L+R)/2)*k;vu=(innerHeight/2-(T+B)/2)*k;zt=Math.max(.45,Math.min(1,(R-L)/(innerWidth*.45),(B-T)/(innerHeight*.6)));
-    }else{vu=h*.2;zt=.8}
+    // the free area: top left, between the ‹ arrow and the map, above the card at the bottom
+    const sl=$('#slide').getBoundingClientRect(),nv=$('#nav').getBoundingClientRect();
+    const L=innerWidth>760?96:16,R=nv.width?nv.left-24:innerWidth-16,T=innerWidth>760?76:60,B=sl.top-16;
+    vt=(innerWidth/2-(L+R)/2)*k;vu=(innerHeight/2-(T+B)/2)*k;zt=Math.max(.35,Math.min(1,(R-L)/(innerWidth*.45),(B-T)/(innerHeight*.6)));
   }
   const e=1-Math.exp(-3.5*dt);this.vx+=(vt-this.vx)*e;this.vy+=(vu-this.vy)*e;this.c.zoom+=(zt-this.c.zoom)*e;
   this.c.setViewOffset(w,h,this.vx,this.vy,w,h);
   this.gl.opacity=.4+.25*Math.sin(t*2.6);this.gm.opacity=.07+.05*Math.sin(t*2.6);   // missing parts pulse gently
+  this.hil.opacity=.45+.3*Math.sin(t*4);                                             // so does the outline on the working part
+  this.gridA+=((phase==='timeline'?1:0)-this.gridA)*(1-Math.exp(-2*dt));              // the ground fades in for the timeline
+  this.grid.visible=this.gridA>.01;this.gridM.uniforms.uA.value=this.gridA*.22;
   this.stormFx(t,dt);
   this.skyFx(dt);
   if(this.lights)this.lights.forEach(l=>l.intensity=l.userData.i*(1-this.sil*.8)*(1-this.storm*.25));   // the storm dims the sun
   this.o.update();
   this.groups.forEach(g=>{if(g.position.y>.002)g.position.y*=.86;else g.position.y=0});
   this.puff(dt);
-  if(Math.abs(this.dust-this.dustT)>.002||Math.abs(this.sil-this.silT)>.002){
-    this.dust+=(this.dustT-this.dust)*(1-Math.exp(-(phase==='rewind'?1.2:2.1)*dt));this.sil+=(this.silT-this.sil)*(1-Math.exp(-.75*dt));this.tint();
+  this.joints(t,dt);
+  const fT=this.fi>=0?1:0;
+  if(Math.abs(this.dust-this.dustT)>.002||Math.abs(this.sil-this.silT)>.002||Math.abs(this.fk-fT)>.002){
+    this.dust+=(this.dustT-this.dust)*(1-Math.exp(-(phase==='rewind'?1.2:2.1)*dt));this.sil+=(this.silT-this.sil)*(1-Math.exp(-.75*dt));
+    this.fk+=(fT-this.fk)*(1-Math.exp(-4*dt));this.tint();
   }
   this.r.render(this.s,this.c);
 },
@@ -309,22 +499,43 @@ build(root,clips){
   meshes.forEach(m=>{
     const mt=Array.isArray(m.material)?m.material[0]:m.material;
     let id=mt&&MATMAP[mt.name];
-    if(!id)id=Object.keys(NAMES).find(k=>NAMES[k].test(m.name||''));
+    if(!id&&!(mt&&BASEMATS.includes(mt.name)))id=Object.keys(NAMES).find(k=>NAMES[k].test(m.name||''));
     const i=PARTS.findIndex(p=>p.id===id);
     (i<0?baseBin:bins[i]).push(m);
   });
-  const keep=(g,m)=>{
-    g.attach(m);
+  // Joints the timeline moves (full NASA model only): the camera head, the arm, the high-gain antenna and each wheel.
+  // Meshes under a joint go into a pivot group placed at that joint, so the part can turn without taking the model apart.
+  // Joints that aren't in the file (mer_small.glb, other .glb files) are skipped and those parts just stay still.
+  const jointOf=new Map(),jpos={},piv={};this.piv=[];
+  const tagJ=(o,j,at)=>{jpos[j]=at;o.traverse(c=>{if(c.isMesh&&c.visible)jointOf.set(c,j)})};
+  [['mast','mast_neck'],['arm','arm_base'],['hga','HGAA_top']].forEach(([j,n])=>{
+    const o=root.getObjectByName(n);if(!o)return;
+    const at=o.getWorldPosition(new THREE.Vector3());
+    if(j==='mast'){   // the camera head turns around the middle of the neck, not the node's origin (which sits off to one side)
+      const nb=new THREE.Box3();(o.isMesh?[o]:o.children.filter(c=>c.isMesh)).forEach(m=>nb.expandByObject(m));
+      if(!nb.isEmpty()){const c=nb.getCenter(new THREE.Vector3());at.x=c.x;at.z=c.z}
+    }
+    tagJ(o,j,at);
+  });
+  root.traverse(o=>{if(/_wheel$/.test(o.name)&&!jpos['w:'+o.name])tagJ(o,'w:'+o.name,new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()))});
+  const keep=(g,m,gi)=>{
+    const j=jointOf.get(m);
+    if(j){
+      const key=j+'@'+gi;
+      if(!piv[key]){const p=new THREE.Group();p.position.copy(jpos[j]);p.userData.j=j;g.add(p);piv[key]=p;this.piv.push(p)}
+      piv[key].attach(m);
+    }else g.attach(m);
     m.material=Array.isArray(m.material)?m.material.map(x=>x.clone()):m.material.clone();
     (Array.isArray(m.material)?m.material:[m.material]).forEach(x=>{
       // the NASA model is fully metallic, which renders near-black without an environment map
       if('metalness' in x){x.metalness=Math.min(x.metalness,.55);x.roughness=Math.max(x.roughness,.5)}
-      if(x.color){x.userData.c0=x.color.clone();this.mats.push(x)}
+      x.polygonOffset=true;x.polygonOffsetFactor=1;x.polygonOffsetUnits=1;   // faces sit a hair back, so the highlight outline draws cleanly on top
+      if(x.color){x.userData.c0=x.color.clone();x.userData.g=gi;this.mats.push(x)}
       dusty(x);
     });
   };
   this.base=new THREE.Group();this.rig.add(this.base);
-  baseBin.forEach(m=>keep(this.base,m));
+  baseBin.forEach(m=>keep(this.base,m,-1));
   PARTS.forEach((p,i)=>{
     const g=new THREE.Group();this.rig.add(g);this.groups.push(g);
     const gh=new THREE.Group();this.rig.add(gh);this.ghosts.push(gh);
@@ -332,12 +543,14 @@ build(root,clips){
       m.updateWorldMatrix(true,false);
       const gmesh=new THREE.Mesh(m.geometry,this.gm),edge=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),this.gl);
       [gmesh,edge].forEach(x=>{x.matrixAutoUpdate=false;x.matrix.copy(m.matrixWorld);gh.add(x)});
-      keep(g,m);
+      keep(g,m,i);
     });
   });
+  const wp=this.piv.find(p=>/^w:/.test(p.userData.j));   // wheel radius, so the wheels roll at the speed the ground slides
+  this.wr=wp?Math.max(.05,new THREE.Box3().setFromObject(wp).getSize(new THREE.Vector3()).y/2):.33;
   this.ready=true;this.sil=0;this.dust=this.dustT=phase==='build'||phase==='ready'?.55:0;this.tint();
   $('#toggle').hidden=false;$('#toggle').textContent='Show illustration';
-  msg('Locked parts show as faint outlines. '+meshes.length+' pieces sorted into '+PARTS.length+' parts.');
+  msg('Locked parts show as faint outlines. '+meshes.length+' pieces sorted into '+PARTS.length+' parts, '+this.piv.length+' moving joints.');
   $('#map').hidden=false;
   $('#maptxt').textContent=[['Base (always shown)',baseBin],...PARTS.map((p,i)=>[p.name,bins[i]])].map(([nm,bin])=>nm+': '+bin.length+' piece(s)'+(bin.length?' ('+bin.slice(0,4).map(m=>(m.material&&m.material.name)||m.name||'unnamed').join(', ')+')':'')).join('\n');
   this.sync();
@@ -349,7 +562,56 @@ sync(){
   // after the storm event the dust stays on (it never blew off the real rover); wake attempts add a little more
   const after=phase==='timeline'&&TIMELINE.slice(0,slide+1).some(t=>(t[3]||{}).fx==='storm'),base=after?.45:0;
   this.dustT=phase==='build'||phase==='ready'?.55:phase==='ending'?.8:Math.min(.8,base+tries*.12);
+  // a card with dust:… (the dusty panels) starts dusty until the wind cleans the panels (act 'panels')
+  const x=phase==='timeline'&&ev();if(x&&x.dust&&this.cleanAt!==slide)this.dustT=Math.max(this.dustT,x.dust);
   this.silT=phase==='ending'?1:0;
+},
+// Timeline jobs: one part does its job (act), the others dim (focus), and the antenna points at Earth while she talks (aim).
+act(n){
+  this.actN=n;this.actT=performance.now()/1000;
+  if(n==='drive'||n==='back')this.burst([this.groups[3]],n==='drive'?500:200);       // sand kicked up by the spinning wheels
+  if(n==='panels'){this.cleanAt=slide;this.dustT=0;this.burst([this.groups[0]],1400)}  // a gust of wind cleans the panels
+},
+// focus(i) also outlines part i in Mars orange: edge lines added once as children of its meshes, so they move with the joints.
+focus(i){
+  this.fi=i;
+  const g=this.groups[i];
+  if(g&&!g.userData.hl){
+    const ms=[];g.traverse(m=>{if(m.isMesh&&m.visible&&m.geometry.attributes.position)ms.push(m)});   // skips the emptied helper boxes
+    g.userData.hl=ms.map(m=>{const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),this.hil);e.raycast=()=>{};m.add(e);return e});
+  }
+  this.groups.forEach((g,k)=>(g.userData.hl||[]).forEach(e=>e.visible=k===i));
+},
+aim(on){this.aimT=on?1:0},
+// Drive to the next stop (dir 1) or back to the last one (-1), alongside the map dot: the wheels roll and the ground slides
+// under her. She stays in place and keeps her angle. Off under reduced motion.
+drive(dir){if(!CALM)this.drvT=performance.now()/1000;this.drvD=dir},
+// Where a joint ('mast' or 'arm') is on screen, in page pixels. null if the model has no such joint.
+screenAt(j){
+  const p=this.piv.find(q=>q.userData.j===j);if(!p||!$('#stage').classList.contains('is3d'))return null;
+  let v=null;
+  if(j==='arm'){   // the Microscopic Imager is on the turret: the piece farthest out from the shoulder
+    const o=p.getWorldPosition(new THREE.Vector3());let far=-1;
+    p.traverse(m=>{if(m.isMesh&&m.visible&&m.geometry.attributes.position){const c=new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()),d=c.distanceTo(o);if(d>far){far=d;v=c}}});
+  }else{const b=new THREE.Box3().setFromObject(p);if(!b.isEmpty())v=b.getCenter(new THREE.Vector3())}
+  if(!v)return null;
+  v.project(this.c);const r=this.r.domElement.getBoundingClientRect();
+  if(Math.abs(v.x)>1||Math.abs(v.y)>1)return null;
+  return {x:r.left+(v.x+1)/2*r.width,y:r.top+(1-v.y)/2*r.height};
+},
+joints(t,dt){
+  const a=t-this.actT,n=this.actN,ease=v=>v*v*(3-2*v),env=D=>a<0||a>D?0:ease(Math.min(1,a/.6,(D-a)/.6));
+  const da=t-this.drvT,dv=da>0&&da<this.DRV?Math.sin(Math.PI*da/this.DRV)*this.drvD:0;   // driving between cards: speed -1..1
+  this.aimA+=(this.aimT-this.aimA)*(1-Math.exp(-2.2*dt));
+  this.piv.forEach(p=>{
+    const j=p.userData.j;
+    if(j==='mast')p.rotation.y=n==='snap'?.5*Math.sin(a*2.4)*env(2.6):n==='pan'?.85*Math.sin(a*1.7)*env(3.7):0;    // Pancam looks around
+    else if(j==='arm')p.rotation.y=n==='arm'?-.9*env(5):0;                                                         // the arm swings out to the rock (and stays out for the picture)
+    else if(j==='hga')p.rotation.y=this.aimA*.9;                                                                   // antenna turns toward Earth
+    else p.rotation.x+=(n==='drive'||n==='odo'||n==='back'?env(3):0)*dt*({drive:8,odo:4,back:-2.5}[n]||0)          // wheels roll, spin in sand, or back out slowly
+      +dv*this.drvV/this.wr*dt;                                                                                    // or drive to the next stop (+x turns roll her toward +z)
+  });
+  this.gridZ=((this.gridZ-dv*this.drvV*dt)%.5+.5)%.5;this.grid.position.z=this.gridZ;   // the ground slides the other way (one cell, repeating)
 },
 // Still copy of one part for the tab, turned to a three-quarter view. Returns false if there is nothing to show.
 preview(i){
@@ -406,12 +668,13 @@ stormFx(t,dt){
 wake(){this.wakeT=performance.now()/1000;this.sync();this.burst()},
 // Dust parting on wake: specks sampled from the rover's surfaces (mostly the up-facing ones, where the dust sits)
 // lift off, blow outward and up on a light wind, settle under weak gravity, and fade.
-burst(){
+// from: the groups the dust comes off (default: the whole rover). N: how many specks.
+burst(from,N=1800){
   this.clearPuff();
   const src=[],w=[];let tot=0;
-  [this.base,...this.groups].forEach(g=>g.traverse(o=>{if(o.isMesh&&o.geometry.attributes.position&&o.geometry.attributes.normal){src.push(o);tot+=o.geometry.attributes.position.count;w.push(tot)}}));
+  (from||[this.base,...this.groups]).forEach(g=>g&&g.traverse(o=>{if(o.isMesh&&o.geometry.attributes.position&&o.geometry.attributes.normal){src.push(o);tot+=o.geometry.attributes.position.count;w.push(tot)}}));
   if(!tot)return;
-  const N=1800,P=new Float32Array(N*3),V=new Float32Array(N*3),D=new Float32Array(N);
+  const P=new Float32Array(N*3),V=new Float32Array(N*3),D=new Float32Array(N);
   const v=new THREE.Vector3(),n=new THREE.Vector3(),c=new THREE.Box3().setFromObject(this.rig).getCenter(new THREE.Vector3());
   for(let i=0;i<N;i++){
     let m,k;
@@ -444,7 +707,12 @@ puff(dt){
   if(u.age>T)this.clearPuff();
 },
 clearPuff(){if(this.pts){this.s.remove(this.pts);this.pts.geometry.dispose();this.pts.material.dispose();this.pts=null}},
-reset(){this.clearPuff();this.skyOn=false;this.starSweep=0;this.dust=this.dustT=.55;this.sil=this.silT=0;this.tint();this.sync()}
+reset(){
+  this.clearPuff();this.skyOn=false;this.starSweep=0;this.dust=this.dustT=.55;this.sil=this.silT=0;
+  this.actN='';this.aimT=this.aimA=0;this.focus(-1);this.fk=0;this.cleanAt=-1;this.piv.forEach(p=>p.rotation.set(0,0,0));   // joints back to rest
+  this.drvT=-9;this.gridZ=0;this.grid.position.z=0;   // stop driving, ground back to center
+  this.tint();this.sync();
+}
 };
 function readFile(f){
   if(!f)return;msg('Reading '+f.name+'…');
