@@ -194,6 +194,21 @@ int main(void) {
     PCD_Init(reader, spi0);
 
     uint8_t version = PCD_ReadRegister(reader, VersionReg);
+    uint8_t tx_before = PCD_ReadRegister(reader, TxControlReg);
+
+    // Force both antenna drivers on
+    PCD_WriteRegister(reader, TxControlReg, tx_before | 0x03);
+
+    sleep_ms(10);
+
+    uint8_t tx_after = PCD_ReadRegister(reader, TxControlReg);
+
+    printf("VERSION: 0x%02X\n", version);
+    printf("TX before: 0x%02X\n", tx_before);
+    printf("TX after: 0x%02X\n", tx_after);
+
+
+    // uint8_t version = PCD_ReadRegister(reader, VersionReg);
     uint8_t antenna = PCD_ReadRegister(reader, TxControlReg);
     printf("DEBUG,VERSION,0x%02X,TX_CONTROL,0x%02X\n", version, antenna);
     if (version == 0x00 || version == 0xFF) {
@@ -250,9 +265,35 @@ int main(void) {
                 printf("DEBUG,WUPA,%s,SELECT,%s,IRQ,0x%02X,ERR,0x%02X,TX,0x%02X\n",
                        GetStatusCodeName(wake_status),
                        GetStatusCodeName(select_status), irq, err, tx);
+                
+                printf("DEBUG,REGS,VER=0x%02X,TX=0x%02X,"
+                    "TMODE=0x%02X,PRESCALER=0x%02X,"
+                    "ASK=0x%02X,MODE=0x%02X,RST=%u\n",
+                    PCD_ReadRegister(reader, VersionReg),
+                    PCD_ReadRegister(reader, TxControlReg),
+                    PCD_ReadRegister(reader, TModeReg),
+                    PCD_ReadRegister(reader, TPrescalerReg),
+                    PCD_ReadRegister(reader, TxASKReg),
+                    PCD_ReadRegister(reader, ModeReg),
+                    gpio_get(RESET_PIN)
+                );
+
             } else {
                 printf("DEBUG,WUPA,%s,SELECT,NOT_ATTEMPTED,IRQ,0x%02X,ERR,0x%02X,TX,0x%02X\n",
                        GetStatusCodeName(wake_status), irq, err, tx);
+                
+                printf("DEBUG,REGS,VER=0x%02X,TX=0x%02X,"
+                    "TMODE=0x%02X,PRESCALER=0x%02X,"
+                    "ASK=0x%02X,MODE=0x%02X,RST=%u\n",
+                    PCD_ReadRegister(reader, VersionReg),
+                    PCD_ReadRegister(reader, TxControlReg),
+                    PCD_ReadRegister(reader, TModeReg),
+                    PCD_ReadRegister(reader, TPrescalerReg),
+                    PCD_ReadRegister(reader, TxASKReg),
+                    PCD_ReadRegister(reader, ModeReg),
+                    gpio_get(RESET_PIN)
+                );
+
             }
             fflush(stdout);
         }
