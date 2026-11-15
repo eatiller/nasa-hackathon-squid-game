@@ -1,6 +1,6 @@
 /* Build Opportunity: mission-console theme. Flat colors only (no gradients, no shadows), square corners, hairlines.
    See docs/DESIGN.md for the tokens, type, and motion rules. */
-:root{--space:#050a14;--panel:#0a1222;--line:#1c2b48;--ink:#dfe6f2;--mute:#7f8fab;--mars:#c8553d;--dust:#d98b5f;--signal:#7fd1b9;--metal:#8d97a8;--dark:#1a2740;
+:root{--space:#050a14;--panel:#0a1222;--line:#1c2b48;--ink:#dfe6f2;--mute:#9aa9c2;--mars:#c8553d;--dust:#d98b5f;--signal:#7fd1b9;--metal:#8d97a8;--dark:#1a2740;
   --head:"Chakra Petch",ui-monospace,monospace;--mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%}

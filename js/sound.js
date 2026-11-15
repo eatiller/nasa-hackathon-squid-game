@@ -8,7 +8,7 @@ try{enabled=localStorage.getItem(PREF)!=='off'}catch(e){}
 function audioContext(){
   if(ctx)return ctx;
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
-  ctx=new AC();master=ctx.createGain();master.gain.value=.24;master.connect(ctx.destination);
+  ctx=new AC();master=ctx.createGain();master.gain.value=.45;master.connect(ctx.destination);
   ambientGain=ctx.createGain();ambientGain.gain.value=.18;ambientGain.connect(ctx.destination);
   return ctx;
 }
