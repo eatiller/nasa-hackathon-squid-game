@@ -1,6 +1,6 @@
 // All on-screen copy: the parts, the mission timeline, and the interface text (UI). Edit this file to change the words.
 // Order matters: keyboard keys 1-4 unlock the parts in this order.
-// uids: RFID tag UIDs for this part (lowercase hex, no spaces, e.g. '93e39a92'). Unknown tags show in the dev panel (press d).
+// uids contains known RFID tag IDs. Unknown tags can be assigned in Hardware mode and are saved in the browser.
 const PARTS=[
 {id:'solar',uids:[],name:'Solar array',tag:'The power',
 desc:'Triple-junction solar cells on the top deck recharge the rover’s batteries every day, so it can work without any fuel.',
@@ -108,7 +108,7 @@ const TRAVERSE=[[65,24],[62,26],[68,25],[72,28],[73,27],[70,31],[68,42],[70,47],
 const UI={
 title:'Opportunity',sub:'MER-B // Mars Exploration Rover-B',
 intro:'Place a part on the platform',introKeys:'',
-tabLabel:'Part detected',dragHint:'Drag to turn',add:'Add to rover',
+tabLabel:'Rover part',dragHint:'Drag to turn',add:'Add to rover',
 wakeLbl:'All parts installed.',wake:'Wake up, Oppy',
 rwLbl:'Opportunity is awake. Rewinding to launch…',rwLand:'07 JUL 2003',rwLandLbl:'Launch day',
 months:['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],
@@ -131,6 +131,6 @@ tryLog:['Sending wake-up signal… no response.','Sending wake-up signal… no r
 goodbye:'Good night, Oppy',
 endTitle:'Opportunity',endDates:'Landed 2004 · Last heard 2018',epitaph:'Built for 90 sols. Lasted for 5,111.',again:'Start again',tParts:'Parts',tSol:'Sol',soundOn:'Sound on',soundOff:'Sound off',tCredit:'Model and images: NASA/JPL-Caltech',
 state:{build:'Assembly',ready:'Dusty · dormant',rewind:'Rewinding',timeline:'Awake',ending:'Signal lost'},
-tools:'Tools (press d to hide)',sim:'Simulate a tag:'
+tools:'Model tools (press d to hide)'
 };
 const WAKE_TRIES=3;
