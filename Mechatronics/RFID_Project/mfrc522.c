@@ -6,33 +6,35 @@
 
 #include "mfrc522.h"
 
+/* Keep chip-select low for an entire SPI transaction. */
+static inline void cs_select(uint pin) {
+    gpio_put(pin, 0);
+    __asm__ volatile("nop\n nop\n nop");
+}
+
+static inline void cs_deselect(uint pin) {
+    __asm__ volatile("nop\n nop\n nop");
+    gpio_put(pin, 1);
+}
+
+
 // ADT object allocation counter
 static int MFRC_Instance_Counter = 0;
 
 /**
  * Set up the data structures of an MFRC522 ADT object and return a pointer
  */
-MFRC522Ptr_t MFRC522_Init() {
-	// allocate instance struct array
-	static struct MFRC522_T mfrc_Instances[MFRC_MAX_INSTANCES];
-	//      static Chip_SSP_DATA_SETUP_T dataSetup_Instances[MFRC_MAX_INSTANCES];
-	//		struct MFRC522_T mfrc_struct;
-	//		Chip_SSP_DATA_SETUP_T data_setup;
-
-	// initialize fields
-	uint16_t i;
-	for (i = 0; i < BUFFER_SIZE; i++) {
-		mfrc_Instances[MFRC_Instance_Counter].Rx_Buf[i] = 0;
-		mfrc_Instances[MFRC_Instance_Counter].Tx_Buf[i] = 0;
-	}
-
-	mfrc_Instances[MFRC_Instance_Counter]._chipSelectPin = cs_pin;
-
-	// update instance counter
-	MFRC_Instance_Counter++;
-
-	return &(mfrc_Instances[MFRC_Instance_Counter - 1]);
+MFRC522Ptr_t MFRC522_Init(void) {
+    static struct MFRC522_T instances[MFRC_MAX_INSTANCES];
+    if (MFRC_Instance_Counter >= MFRC_MAX_INSTANCES) {
+        return NULL; // Prevent writing past the static array.
+    }
+    MFRC522Ptr_t reader = &instances[MFRC_Instance_Counter++];
+    memset(reader, 0, sizeof(*reader));
+    reader->_chipSelectPin = cs_pin;
+    return reader;
 } 
+ 
 
 
 
@@ -58,24 +60,16 @@ void PCD_WriteRegister(MFRC522Ptr_t mfrc, uint8_t reg, uint8_t value) {
  * Writes a number of uint8_ts to the specified register in the MFRC522 chip.
  * The interface is described in the datasheet section 8.1.2.
  */
-void PCD_WriteNRegister(
-	MFRC522Ptr_t mfrc,
-	uint8_t reg,   ///< The register to write to. One of the PCD_Register enums.
-	uint8_t count, ///< The number of uint8_ts to write to the register
-	uint8_t *values ///< The values to write. uint8_t array.
-	) {
-	uint8_t msg[count + 1]; //Values and address
-	msg[0] = 0x00 | reg;
-
-	uint8_t i;
-	for(i = 0; i < count; i++) {
-		msg[i + 1] = values[i];
-	}
-
-	cs_select(mfrc->_chipSelectPin);
-	spi_write_blocking(mfrc->spi, msg, count + 1);
-	cs_deselect(mfrc->_chipSelectPin);
+void PCD_WriteNRegister(MFRC522Ptr_t mfrc, uint8_t reg,
+                        uint8_t count, uint8_t *values) {
+    if (!mfrc || !values || count == 0) return;
+    const uint8_t addr = reg & 0x7E; // Register IDs are already shifted << 1.
+    cs_select(mfrc->_chipSelectPin);
+    spi_write_blocking(mfrc->spi, &addr, 1);
+    spi_write_blocking(mfrc->spi, values, count);
+    cs_deselect(mfrc->_chipSelectPin);
 }
+
 
 /**
  * Reads a uint8_t from the specified register in the MFRC522 chip.
@@ -99,33 +93,33 @@ uint8_t PCD_ReadRegister(
  * Reads a number of uint8_ts from the specified register in the MFRC522 chip.
  * The interface is described in the datasheet section 8.1.2.
  */
-void PCD_ReadNRegister(
-	MFRC522Ptr_t mfrc,
-	uint8_t reg, ///< The register to read from. One of the PCD_Register enums.
-	uint8_t count,   ///< The number of uint8_ts to read
-	uint8_t *values, ///< uint8_t array to store the values in.
-	uint8_t rxAlign ///< Only bit positions rxAlign..7 in values[0] are updated.
-	) {
-	uint8_t buf = 0;
-	const uint8_t msg = 0x80 | reg;
-	
-	cs_select(mfrc->_chipSelectPin);
+void PCD_ReadNRegister(MFRC522Ptr_t mfrc, uint8_t reg,
+                       uint8_t count, uint8_t *values, uint8_t rxAlign) {
+    if (!mfrc || !values || count == 0 || rxAlign > 7) return;
 
-	// uint8_t i;
-	// for(i = 0; i < count; i++) {
-	// 	uint8_t value = 0;
-	// 	spi_write_blocking(mfrc->spi, &msg, 1);
-	// 	spi_read_blocking(mfrc->spi, 0, &value, 1);
-	// 	values[i] = value;
-	// }
+    const uint8_t address = 0x80 | (reg & 0x7E);
+    const uint8_t mask = (uint8_t)(0xFFu << rxAlign);
+    uint8_t value = 0;
 
-	uint8_t i;
-	for(i = 0; i < count; i++) {
-		values[i] = PCD_ReadRegister(mfrc, msg);
-	}
+    cs_select(mfrc->_chipSelectPin);
+    spi_write_blocking(mfrc->spi, &address, 1);
 
-	cs_deselect(mfrc->_chipSelectPin);
+    for (uint8_t i = 0; i < count; ++i) {
+        // For continuous read, send address again until the final byte.
+        // The last dummy byte ends the read transaction.
+        uint8_t tx = (i + 1 < count) ? address : 0x00;
+        spi_write_read_blocking(mfrc->spi, &tx, &value, 1);
+
+        // In anticollision, preserve the low rxAlign bits of the first byte.
+        if (i == 0 && rxAlign != 0) {
+            values[0] = (values[0] & (uint8_t)~mask) | (value & mask);
+        } else {
+            values[i] = value;
+        }
+    }
+    cs_deselect(mfrc->_chipSelectPin);
 }
+
 
 /**
  * Sets the bits given in mask in register reg.
@@ -211,76 +205,52 @@ PCD_CalculateCRC(MFRC522Ptr_t mfrc,
  * Initializes the MFRC522 chip.
  */
 void PCD_Init(MFRC522Ptr_t mfrc, spi_inst_t *spi) {
+    if (!mfrc) return;
+    mfrc->spi = spi ? spi : spi0;
 
-	mfrc->spi = spi0;
-	gpio_put(RESET_PIN, 0);
-    sleep_ms(1000);
-    gpio_put(RESET_PIN, 1);
-	sleep_ms(50);
+    // Initialize manually-controlled, active-low chip select.
+    gpio_init(mfrc->_chipSelectPin);
+    gpio_put(mfrc->_chipSelectPin, 1);
+    gpio_set_dir(mfrc->_chipSelectPin, GPIO_OUT);
 
-    gpio_init(cs_pin);
-    gpio_set_dir(cs_pin, GPIO_OUT);
-    gpio_put(cs_pin, 1);
-
-    spi_init(spi0, 1000000);
-
-    spi_set_format(spi0, 8, 0, 0, SPI_MSB_FIRST);
-
+    // SPI0 mapping on Pico / Pico 2 W: MISO=GP16, SCK=GP18, MOSI=GP19.
+    spi_init(mfrc->spi, MFRC522_BIT_RATE);
+    spi_set_format(mfrc->spi, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     gpio_set_function(sck_pin, GPIO_FUNC_SPI);
     gpio_set_function(mosi_pin, GPIO_FUNC_SPI);
     gpio_set_function(miso_pin, GPIO_FUNC_SPI);
 
-	PCD_WriteRegister(mfrc, CommandReg, PCD_SoftReset);
+    gpio_init(RESET_PIN);
+    gpio_put(RESET_PIN, 0);
+    gpio_set_dir(RESET_PIN, GPIO_OUT);
+    sleep_ms(10);
+    gpio_put(RESET_PIN, 1);
+    sleep_ms(50);
 
-	// When communicating with a PICC we need a timeout if something goes wrong.
-	// f_timer = 13.56 MHz / (2*TPreScaler+1) where TPreScaler =
-	// [TPrescaler_Hi:TPrescaler_Lo].
-	// TPrescaler_Hi are the four low bits in TModeReg. TPrescaler_Lo is
-	// TPrescalerReg.
-	PCD_WriteRegister(mfrc, TModeReg, 0x80); // TAuto=1; timer starts
-											 // automatically at the end of the
-											 // transmission in all
-											 // communication modes at all
-											 // speeds
-	PCD_WriteRegister(mfrc, TPrescalerReg,
-					  0xA9); // TPreScaler = TModeReg[3..0]:TPrescalerReg, ie
-							 // 0x0A9 = 169 => f_timer=40kHz, ie a timer period
-							 // of 25�s.
-	PCD_WriteRegister(
-		mfrc, TReloadRegH,
-		0x03); // Reload timer with 0x3E8 = 1000, ie 25ms before timeout.
-	PCD_WriteRegister(mfrc, TReloadRegL, 0xE8);
+    PCD_Reset(mfrc);
 
-	PCD_WriteRegister(mfrc, TxASKReg, 0x40); // Default 0x00. Force a 100 % ASK
-											 // modulation independent of the
-											 // ModGsPReg register setting
-	PCD_WriteRegister(mfrc, ModeReg, 0x3D);  // Default 0x3F. Set the preset
-											// value for the CRC coprocessor for
-											// the CalcCRC command to 0x6363
-											// (ISO 14443-3 part 6.2.4)
-	PCD_AntennaOn(mfrc); // Enable the antenna driver pins TX1 and TX2 (they
-						 // were disabled by the reset)
+    // 25ms RFID response timeout: 13.56MHz / (2*169+1) ~= 40kHz.
+    PCD_WriteRegister(mfrc, TModeReg, 0x80);
+    PCD_WriteRegister(mfrc, TPrescalerReg, 0xA9);
+    PCD_WriteRegister(mfrc, TReloadRegH, 0x03);
+    PCD_WriteRegister(mfrc, TReloadRegL, 0xE8);
+    PCD_WriteRegister(mfrc, TxASKReg, 0x40);
+    PCD_WriteRegister(mfrc, ModeReg, 0x3D);
+    PCD_AntennaOn(mfrc);
 } // End PCD_Init()
 
 /**
  * Performs a soft reset on the MFRC522 chip and waits for it to be ready again.
  */
 void PCD_Reset(MFRC522Ptr_t mfrc) {
-	PCD_WriteRegister(mfrc, CommandReg,
-					  PCD_SoftReset); // Issue the SoftReset command.
-	// The datasheet does not mention how long the SoftRest command takes to
-	// complete.
-	// But the MFRC522 might have been in soft power-down mode (triggered by bit
-	// 4 of CommandReg)
-	// Section 8.8.2 in the datasheet says the oscillator start-up time is the
-	// start up time of the crystal + 37,74�s. Let us be generous: 50ms.
-	//SysTick_Init();
-	sleep_ms(50);
-	// Wait for the PowerDown bit in CommandReg to be cleared
-	while (PCD_ReadRegister(mfrc, CommandReg) & (1 << 4)) {
-		// PCD still restarting - unlikely after waiting 50ms, but better safe
-		// than sorry.
-	}
+    PCD_WriteRegister(mfrc, CommandReg, PCD_SoftReset);
+    sleep_ms(50);
+    // A broken/disconnected reader must not hang the firmware forever.
+    absolute_time_t deadline = make_timeout_time_ms(150);
+    while ((PCD_ReadRegister(mfrc, CommandReg) & (1u << 4)) &&
+           !time_reached(deadline)) {
+        sleep_ms(1);
+    }
 } // End PCD_Reset()
 
 /**
@@ -362,16 +332,22 @@ uint8_t PCD_SelfTest(MFRC522Ptr_t mfrc) {
 
     //The self test is initiated. Wait for completion
     bool self_test_complete = false;
-    while (!self_test_complete) {
-        uint8_t buf = PCD_ReadRegister(mfrc, FIFOLevelReg);
-        //printf("%x\n\r", buf);
-        if (buf >= 64) {
+    absolute_time_t deadline = make_timeout_time_ms(250);
+    while (!time_reached(deadline)) {
+        if (PCD_ReadRegister(mfrc, FIFOLevelReg) >= 64) {
             self_test_complete = true;
+            break;
         }
+        sleep_us(100);
+    }
+    if (!self_test_complete) {
+        PCD_WriteRegister(mfrc, CommandReg, PCD_Idle);
+        PCD_WriteRegister(mfrc, AutoTestReg, 0x00);
+        return 1;
     }
     //printf("Self test completed\n\r");
 
-    //Stop calculating CRC with idle command???
+    PCD_WriteRegister(mfrc, CommandReg, PCD_Idle);
 
     //When the self test has completed, the FIFO buffer contains the version bytes.
     uint8_t result[64];
@@ -1072,7 +1048,7 @@ StatusCode MIFARE_Read(MFRC522Ptr_t mfrc,
 	StatusCode result;
 
 	// Sanity check
-	if (buffer == NULL || *bufferSize < 18) {
+	if (buffer == NULL || bufferSize == NULL || *bufferSize < 18) {
 		return STATUS_NO_ROOM;
 	}
 
@@ -1395,21 +1371,17 @@ StatusCode PCD_NTAG216_AUTH(MFRC522Ptr_t mfrc, uint8_t *passWord,
 
 	// Transceive the data, store the reply in cmdBuffer[]
 	uint8_t waitIRq = 0x30; // RxIRq and IdleIRq
-	uint8_t cmdBufferSize = sizeof(cmdBuffer);
 	uint8_t validBits = 0;
 	uint8_t rxlength = 5;
 	result =
 		PCD_CommunicateWithPICC(mfrc, PCD_Transceive, waitIRq, cmdBuffer, 7,
 								cmdBuffer, &rxlength, &validBits, 0, false);
 
-	pACK[0] = cmdBuffer[0];
-	pACK[1] = cmdBuffer[1];
-
-	if (result != STATUS_OK) {
-		return result;
-	}
-
-	return STATUS_OK;
+    if (result != STATUS_OK) return result;
+    if (rxlength < 2 || pACK == NULL) return STATUS_ERROR;
+    pACK[0] = cmdBuffer[0];
+    pACK[1] = cmdBuffer[1];
+    return STATUS_OK;
 } // End PCD_NTAG216_AUTH()
 
 /*******************************************************************************
@@ -1831,7 +1803,7 @@ void PICC_DumpMifareClassicSectorToSerial(
 									  key, uid);
 			if (status != STATUS_OK) {
 				printf("PCD_Authenticate() failed: ");
-				printf(GetStatusCodeName(status));
+				printf("%s", GetStatusCodeName(status));
 				printf("\n");
 				return;
 			}
@@ -1841,7 +1813,7 @@ void PICC_DumpMifareClassicSectorToSerial(
 		status = MIFARE_Read(mfrc, blockAddr, buffer, &uint8_tCount);
 		if (status != STATUS_OK) {
 			printf("MIFARE_Read() failed: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 			continue;
 		}
 		// Dump data
@@ -1949,7 +1921,7 @@ void PICC_DumpMifareUltralightToSerial(MFRC522Ptr_t mfrc) {
 		status = MIFARE_Read(mfrc, page, buffer, &uint8_tCount);
 		if (status != STATUS_OK) {
 			printf("MIFARE_Read() failed: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 			break;
 		}
 		// Dump data
@@ -2045,7 +2017,7 @@ bool MIFARE_OpenUidBackdoor(MFRC522Ptr_t mfrc, bool logErrors) {
 			printf("Card did not respond to 0x40 after HALT command. Are you "
 					 "sure it is a UID changeable one?\r\n");
 			printf("Error name: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 		}
 		return false;
 	}
@@ -2073,7 +2045,7 @@ bool MIFARE_OpenUidBackdoor(MFRC522Ptr_t mfrc, bool logErrors) {
 			printf("Error in communication at command 0x43, after "
 					 "successfully executing 0x40\r\n");
 			printf("Error name: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 		}
 		return false;
 	}
@@ -2116,7 +2088,7 @@ bool MIFARE_SetUid(MFRC522Ptr_t mfrc, uint8_t *newUid, uint8_t uidSize,
 	}
 
 	// Authenticate for reading
-	MIFARE_Key key = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+	MIFARE_Key key = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
 	StatusCode status = PCD_Authenticate(mfrc, PICC_CMD_MF_AUTH_KEY_A,
 										 (uint8_t)1, &key, &(mfrc->uid));
 	if (status != STATUS_OK) {
@@ -2143,14 +2115,14 @@ bool MIFARE_SetUid(MFRC522Ptr_t mfrc, uint8_t *newUid, uint8_t uidSize,
 				if (logErrors) {
 					printf("Failed to authenticate to card for reading, "
 							 "could not set UID: \r\n");
-					printf(GetStatusCodeName(status));
+					printf("%s", GetStatusCodeName(status));
 				}
 				return false;
 			}
 		} else {
 			if (logErrors) {
 				printf("PCD_Authenticate() failed: ");
-				printf(GetStatusCodeName(status));
+				printf("%s", GetStatusCodeName(status));
 				printf("\n");
 			}
 			return false;
@@ -2164,7 +2136,7 @@ bool MIFARE_SetUid(MFRC522Ptr_t mfrc, uint8_t *newUid, uint8_t uidSize,
 	if (status != STATUS_OK) {
 		if (logErrors) {
 			printf("MIFARE_Read() failed: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 			printf(
 				"Are you sure your KEY A for sector 0 is 0xFFFFFFFFFFFF?\r\n");
 		}
@@ -2197,7 +2169,7 @@ bool MIFARE_SetUid(MFRC522Ptr_t mfrc, uint8_t *newUid, uint8_t uidSize,
 	if (status != STATUS_OK) {
 		if (logErrors) {
 			printf("MIFARE_Write() failed: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 		}
 		return false;
 	}
@@ -2225,7 +2197,7 @@ bool MIFARE_UnbrickUidSector(MFRC522Ptr_t mfrc, bool logErrors) {
 	if (status != STATUS_OK) {
 		if (logErrors) {
 			printf("MIFARE_Write() failed: ");
-			printf(GetStatusCodeName(status));
+			printf("%s", GetStatusCodeName(status));
 		}
 		return false;
 	}
@@ -2263,15 +2235,3 @@ bool PICC_ReadCardSerial(MFRC522Ptr_t mfrc) {
 	StatusCode result = PICC_Select(mfrc, &(mfrc->uid), 0);
 	return (result == STATUS_OK);
 } // End
-
-static inline void cs_select(const uint cs) {
-    asm volatile("nop \n nop \n nop");
-    gpio_put(cs, 0); // Active low
-    asm volatile("nop \n nop \n nop");
-}
-
-static inline void cs_deselect(const uint cs) {
-    asm volatile("nop \n nop \n nop");
-    gpio_put(cs, 1);
-    asm volatile("nop \n nop \n nop");
-}

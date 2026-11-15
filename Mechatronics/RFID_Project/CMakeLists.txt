@@ -35,18 +35,19 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(RFID_Project RFID_Project.c )
+add_executable(RFID_Project RFID_Project.c mfrc522.c)
 
 pico_set_program_name(RFID_Project "RFID_Project")
 pico_set_program_version(RFID_Project "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(RFID_Project 0)
-pico_enable_stdio_usb(RFID_Project 0)
+pico_enable_stdio_usb(RFID_Project 1)
 
 # Add the standard library to the build
 target_link_libraries(RFID_Project
-        pico_stdlib)
+        pico_stdlib
+        hardware_spi)
 
 # Add the standard include files to the build
 target_include_directories(RFID_Project PRIVATE

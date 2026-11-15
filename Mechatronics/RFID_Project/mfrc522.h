@@ -27,11 +27,12 @@
  ******************************************************************************/
 // send only one byte per transfer, see WriteRegister functions
 #define BUFFER_SIZE  1 
-// Defined as 4MHz in the original library
-#define MFRC522_BIT_RATE 4000000 
+// SPI clock. 1 MHz is a conservative starting point for common RC522 modules.
+#define MFRC522_BIT_RATE 1000000 
 // Used for ADT object allocation
 #define MFRC_MAX_INSTANCES 2	 
-// Reset pin to MFRC522
+// Default wiring for Raspberry Pi Pico / Pico 2 W (SPI0, 3.3 V only).
+// RC522 SDA/SS=GP17, SCK=GP18, MOSI=GP19, MISO=GP16, RST=GP20.
 #define RESET_PIN 20
 
 static const uint8_t FIFO_SIZE = 64; // Size of the MFRC522 FIFO
@@ -315,7 +316,7 @@ typedef struct MFRC522_T *MFRC522Ptr_t;
  * Function to setup a MFRC522 ADT object
  * @return an initialized  ADT object
  */
-MFRC522Ptr_t MFRC522_Init();
+MFRC522Ptr_t MFRC522_Init(void);
 
 /*******************************************************************************
 * Basic interface functions for communicating with the MFRC522
@@ -332,9 +333,7 @@ void PCD_ClearRegisterBitMask(MFRC522Ptr_t mfrc, uint8_t reg, uint8_t mask);
 StatusCode PCD_CalculateCRC(MFRC522Ptr_t mfrc, uint8_t *data, uint8_t length,
 							uint8_t *result);
 							
-//Chip select for pi pico SPI
-static inline void cs_select(const uint cs);
-static inline void cs_deselect(const uint cs); 
+// Chip-select helpers are private to mfrc522.c.
 
 /*******************************************************************************
 * Functions for manipulating the MFRC522
