@@ -2,7 +2,7 @@
 (()=>{
 const $=s=>document.querySelector(s);
 const BOARDS=[{usbVendorId:0x16c0},{usbVendorId:0x2e8a}];
-const TAGS_KEY='uidMap',MODE_KEY='opportunityInputMode';
+const TAGS_KEY='uidMap';
 const btn=$('#connect'),plat=$('#plat');
 let port=null,open=false;
 const seenUnknown=new Map(),rawLog=[];
@@ -68,7 +68,6 @@ async function autoConnect(){
 
 function setInputMode(next){
   inputMode=next==='hardware'?'hardware':'browser';
-  try{localStorage.setItem(MODE_KEY,inputMode)}catch(e){}
   document.body.dataset.input=inputMode;
   const browser=inputMode==='browser';
   $('#browserMode').classList.toggle('active',browser);
@@ -124,7 +123,6 @@ addEventListener('keydown',e=>{
   else if(k==='d')$('#tools').hidden=!$('#tools').hidden;
 });
 
-let initial=new URLSearchParams(location.search).get('mode')||'browser';
-try{initial=new URLSearchParams(location.search).get('mode')||localStorage.getItem(MODE_KEY)||'browser'}catch(e){}
+let initial=new URLSearchParams(location.search).get('mode')||'hardware';
 setInputMode(initial);
 })();

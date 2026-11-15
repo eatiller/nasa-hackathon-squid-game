@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body data-phase="build">
+<body data-phase="build" data-input="hardware">
 <main id="stage">
 <div id="pano" aria-hidden="true"><i></i><i></i></div>
 <svg id="ill" viewBox="0 0 640 360" role="img" aria-label="Side view of the Opportunity rover as it is assembled">
@@ -32,7 +32,7 @@
 
 <p id="mark"><b data-ui="title"></b><span data-ui="sub"></span></p>
 <div id="intro"><p class="cursor" data-ui="intro"></p><p class="keys" data-ui="introKeys"></p></div>
-<section id="parts" aria-label="Rover parts">
+<section id="parts" aria-label="Rover parts" hidden>
   <p class="lbl">Choose a part to inspect</p>
   <div id="partChoices"></div>
 </section>
@@ -76,8 +76,8 @@
 
 <footer id="telemetry">
 <span>MER-B</span><span id="tParts"></span><span id="tState"></span><span id="tSol"></span>
-<span id="edition" role="group" aria-label="Input edition"><button id="browserMode" class="text active" type="button" aria-pressed="true">Browser</button><button id="hardwareMode" class="text" type="button" aria-pressed="false">Hardware</button></span>
-<span id="hardwareStatus" hidden><span id="plat" aria-live="polite">Platform not connected</span> <button class="text" id="connect" type="button">Connect</button></span>
+<span id="edition" role="group" aria-label="Input edition"><button id="hardwareMode" class="text active" type="button" aria-pressed="true">Hardware</button><button id="browserMode" class="text" type="button" aria-pressed="false">Browser</button></span>
+<span id="hardwareStatus"><span id="plat" aria-live="polite">Platform not connected</span> <button class="text" id="connect" type="button">Connect</button></span>
 <span class="credit" data-ui="tCredit"></span>
 </footer>
 

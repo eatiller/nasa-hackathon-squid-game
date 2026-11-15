@@ -107,7 +107,7 @@ const TRAVERSE=[[65,24],[62,26],[68,25],[72,28],[73,27],[70,31],[68,42],[70,47],
 // Interface text. Elements with data-ui="key" (or data-aria="key") in index.html get their text from here.
 const UI={
 title:'Opportunity',sub:'MER-B // Mars Exploration Rover-B',
-intro:'Build Opportunity',introKeys:'Select each part below, then explore her journey.',
+intro:'Place a part on the platform',introKeys:'',
 tabLabel:'Rover part',dragHint:'Drag to turn',add:'Add to rover',
 wakeLbl:'All parts installed.',wake:'Wake up, Oppy',
 rwLbl:'Opportunity is awake. Rewinding to launch…',rwLand:'07 JUL 2003',rwLandLbl:'Launch day',

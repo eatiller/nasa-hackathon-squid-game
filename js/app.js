@@ -2,7 +2,7 @@
 // On-screen part choices and keyboard shortcuts call unlock(id), add(), primary(), nav(d) and reset().
 // Flow: build (select parts) -> ready (Wake up, Oppy) -> rewind -> timeline -> ending -> reset.
 const unlocked=new Set();
-let phase='build',pending=-1,slide=0,tries=0,endAt=0,timers=[],step=0,busy=false,seq=0,inputMode='browser';
+let phase='build',pending=-1,slide=0,tries=0,endAt=0,timers=[],step=0,busy=false,seq=0,inputMode='hardware';
 const $=s=>document.querySelector(s);
 const has=i=>unlocked.has(PARTS[i].id);
 const pad=n=>String(n).padStart(2,'0');
