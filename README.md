@@ -12,7 +12,7 @@ The 3D model loads with `fetch`, so open the folder through a local web server (
 
 Then visit http://localhost:8000. The Browser edition works in any modern browser. The Hardware edition uses Web Serial, so open it in Chrome or Edge.
 
-The site opens in Hardware mode by default. Use the switch in the bottom telemetry bar to choose an edition. In Browser mode, select the four part cards on screen. In Hardware mode, connect the Teensy 4.1 or Pico 2 RFID platform and scan each part. Unknown RFID tags can be assigned from the model tools panel. In either edition, keys `1`–`4` provide a part-selection fallback; `Enter` presses the main button, `←`/`→` move through the timeline, `r` starts over, and `d` opens model tools. Sound starts after the first interaction; use **Sound on/off** in the telemetry bar or press `m` to toggle it.
+The site opens in Hardware mode by default. Use the switch in the bottom telemetry bar to choose an edition. In Browser mode, select the four part cards on screen. In Hardware mode, connect the Teensy 4.1 or Pico 2 RFID platform and scan each part. Unknown RFID tags can be assigned from the model tools panel. Drag the 3D rover to turn it; use the mouse wheel or a two-finger pinch to zoom. In either edition, keys `1`–`4` provide a part-selection fallback; `Enter` presses the main button, `←`/`→` move through the timeline, `r` starts over, and `d` opens model tools. Sound starts after the first interaction; use **Sound on/off** in the telemetry bar or press `m` to toggle it.
 
 ## Structure
 

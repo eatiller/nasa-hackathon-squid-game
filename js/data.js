@@ -108,7 +108,7 @@ const TRAVERSE=[[65,24],[62,26],[68,25],[72,28],[73,27],[70,31],[68,42],[70,47],
 const UI={
 title:'Opportunity',sub:'MER-B // Mars Exploration Rover-B',
 intro:'Place a part on the platform',introKeys:'',
-tabLabel:'Rover part',dragHint:'Drag to turn',add:'Add to rover',
+tabLabel:'Rover part',dragHint:'Drag to turn · Scroll or pinch to zoom',orbitHint:'Drag to turn · Scroll or pinch to zoom',add:'Add to rover',
 wakeLbl:'All parts installed.',wake:'Wake up, Oppy',
 rwLbl:'Opportunity is awake. Rewinding to launch…',rwLand:'07 JUL 2003',rwLandLbl:'Launch day',
 months:['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],

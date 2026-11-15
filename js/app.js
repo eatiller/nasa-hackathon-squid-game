@@ -416,7 +416,8 @@ init(){
   this.stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0x9fb3d9,size:1.6,sizeAttenuation:false,transparent:true,opacity:0,depthWrite:false}));
   this.sky=new THREE.Group();this.sky.rotation.x=.45;this.sky.add(this.stars);this.s.add(this.sky);this.stars.visible=false;
   this.o=new THREE.OrbitControls(this.c,this.r.domElement);
-  this.o.enableDamping=true;this.o.enablePan=false;this.o.enableZoom=false;   // no auto-spin: the user turns it by dragging
+  this.o.enableDamping=true;this.o.enablePan=false;this.o.enableZoom=true;
+  this.o.zoomSpeed=.8;this.o.minDistance=4.2;this.o.maxDistance=16;   // keep the camera outside the rover and the rover in view
   this.o.target.set(0,.9,0);
   // missing parts: blueprint-blue fill + outline (pulses in tick), so they stand apart from the dusty model. The part in the open tab turns Mars orange.
   const gmat=(c,o,line)=>line?new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false}):new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false});
@@ -643,7 +644,7 @@ preview(i){
     this.ps=new THREE.Scene();this.ps.add(new THREE.HemisphereLight(0xfff0dd,0x3a3040,.75));
     const d=new THREE.DirectionalLight(0xfff4ea,.95);d.position.set(4,8,5);this.ps.add(d);
     this.pc=new THREE.PerspectiveCamera(35,1,.01,100);
-    this.po=new THREE.OrbitControls(this.pc,this.pr.domElement);this.po.enableZoom=false;this.po.enablePan=false;this.po.enableDamping=true;
+    this.po=new THREE.OrbitControls(this.pc,this.pr.domElement);this.po.enableZoom=true;this.po.enablePan=false;this.po.enableDamping=true;this.po.zoomSpeed=.8;
   }
   const w=box.clientWidth||320,h=box.clientHeight||170;this.pr.setSize(w,h,false);this.pc.aspect=w/h;this.pc.updateProjectionMatrix();
   if(this.pv)this.ps.remove(this.pv);
@@ -653,7 +654,8 @@ preview(i){
   this.pv=new THREE.Group();this.pv.add(c);this.pv.rotation.y=-.6;this.ps.add(this.pv);
   // fit the whole part with a margin: distance from its bounding sphere and the narrower of the two view angles
   const hv=THREE.MathUtils.degToRad(this.pc.fov/2),hh=Math.atan(Math.tan(hv)*this.pc.aspect);
-  this.pc.position.set(0,.3,1).normalize().multiplyScalar(r/Math.sin(Math.min(hv,hh))*1.05);this.pc.lookAt(0,0,0);this.po.target.set(0,0,0);this.po.update();
+  this.pc.position.set(0,.3,1).normalize().multiplyScalar(r/Math.sin(Math.min(hv,hh))*1.05);this.pc.lookAt(0,0,0);this.po.target.set(0,0,0);
+  const dist=this.pc.position.length();this.po.minDistance=dist*.55;this.po.maxDistance=dist*2.2;this.po.update();
   return true;
 },
 pop(i){if(this.groups[i])this.groups[i].position.y=1.8},
