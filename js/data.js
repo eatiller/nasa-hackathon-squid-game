@@ -3,21 +3,21 @@
 // uids contains known RFID tag IDs. Unknown tags can be assigned in Hardware mode and are saved in the browser.
 const PARTS=[
 {id:'solar',uids:[],name:'Solar array',tag:'The power',
-desc:'Triple-junction solar cells on the top deck recharge the rover’s batteries every day, so it can work without any fuel.',
+desc:'Triple-junction solar cells on the top deck turn sunlight into electricity, recharging the rover’s batteries without fuel.',
 specs:[['Cell type','Triple-junction GaAs'],['Peak output','About 140 W'],['Area','About 1.3 m²']],
-fact:'At the start of the mission the solar panels could provide up to around 900 watt-hours (Wh) per day to recharge the battery and power system. Dust slowly dimmed the panels, but gusts of wind sometimes blew them clean, which gave the mission years of extra life. '},
+fact:'At the start of the mission, the solar panels could generate up to about 900 watt-hours of electricity per day. Dust gradually reduced their output, but occasional gusts of wind cleaned the panels and helped extend the mission.'},
 {id:'arm',uids:[],name:'Instrument deployment device',tag:'The arm',
-desc:'A robotic arm with a turret at the end. It places four tools against rocks and soil so the rover can study them up close.',
+desc:'A robotic arm with a turret at its end places four scientific instruments against rocks and soil for close-up study.',
 specs:[['Tool 1','Rock Abrasion Tool (RAT)'],['Tool 2','Microscopic Imager (MI)'],['Tools 3 and 4','Mössbauer (MB) and Alpha particle X-ray (APXS) spectrometers']],
-fact:'The MB was used for close-up investigations of the minerology of iron-bearing rocks and soils while the APXS allowed for close-up analysis of the abundances of elements that make up rocks and soils. The MI obtained close-up, high-resolution images of rocks and soils while the RAT exposed fresh material for examination.'},
+fact:'The Mössbauer spectrometer studied iron-bearing minerals, while the APXS measured the elements in rocks and soil. The Microscopic Imager captured detailed close-up pictures. Before those studies, the Rock Abrasion Tool ground away the weathered surface to expose fresh material.'},
 {id:'camera',uids:[],name:'Pancam mast assembly',tag:'The eyes',
-desc:'A mast lifts the Panoramic Camera pair and navigation cameras about 1.5 m above the ground to scout the terrain ahead.',
-specs:[['Cameras','Pancam and Navcam'],['Filters','13 geology filters'],['Eye height','1.4 meters tall (about 5 feet)']],
-fact:'The height gives the cameras a wide field of view. The pancam mast assembly acts as a periscope for the science instrument that is housed inside the rover body for thermal reasons and provides a better point of view for the Pancams and the Navcams. The Pancams examined the texture, color, mineralogy, and structure of the local terrain, while the Navcams was used for navigation and driving.'},
+desc:'The mast raises the Pancam and Navcam cameras about 1.5 meters above the ground, giving them a clear view of the terrain.',
+specs:[['Cameras','Pancam and Navcam'],['Filters','13 geology filters'],['Camera height','About 1.5 m']],
+fact:'The mast gives the Pancam and Navcam a better view of the surrounding terrain. Pancam used color and filters to study surface features and minerals; Navcam helped the team assess terrain and plan drives. The mast also relayed views from the Mini-TES instrument inside the rover body.'},
 {id:'wheels',uids:[],name:'Wheels and rocker-bogie suspension',tag:'The legs',
-desc:'Six wheels, each with its own motor, on a pivoting suspension that keeps all wheels on the ground over rough terrain.',
-specs:[['Wheels','6, each 26 cm across'],['Steering','Front and rear pairs'],['Top speed','About 5 cm per second/0.18 kilometers per hour']],
-fact:'The vehicle was steered at front and rear and was designed to operate safely at tilts of up to 30 degrees. On Mars, the rover rarely moved faster than a few meters per hour, because it stopped often to check for hazards.'}
+desc:'Six motorized wheels and a rocker-bogie suspension help the rover travel over uneven ground while keeping its wheels in contact with the surface.',
+specs:[['Wheels','6, each 26 cm across'],['Steering','Front and rear pairs'],['Top speed','About 5 cm/s (0.18 km/h)']],
+fact:'The rover could steer with its front and rear wheels and was designed to handle slopes of up to 30 degrees. It usually drove only a few meters per hour, stopping often so the team could check the terrain ahead.'}
 ];
 // The timeline: one card per event. On each card you wake Oppy (she sends a status report),
 // then give her instructions (a part does the job, she sends findings, and her picture pops up).
