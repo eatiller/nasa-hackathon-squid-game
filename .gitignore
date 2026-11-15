@@ -4,6 +4,7 @@ CLAUDE.md
 # Dependencies / build output
 node_modules/
 dist/
+docs
 
 # Pico build output
 build/

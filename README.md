@@ -2,7 +2,7 @@
 
 # Build Opportunity
 
-An interactive site where you unlock the parts of NASA's Opportunity rover one by one. Each unlock shows details about the part and builds the 3D rover. When all four parts (solar array, arm, camera mast, wheels) are placed, the rover wakes up, shakes off the dust, and a mission timeline appears.
+An interactive site where kids rebuild NASA's Opportunity rover one part at a time. Each part placed on the RFID platform opens a tab with that part's 3D model and facts; **Add to rover** snaps it onto the floating rover. With all four parts (solar array, arm, camera mast, wheels) on, **Wake up, Oppy** appears: the rover shakes off its dust, the date rewinds to launch day, and an interactive timeline walks through the mission. On the last screen you try to wake Oppy, then say **Goodbye, Oppy** as the rover fades to a silhouette.
 
 ## Run locally
 
@@ -12,16 +12,18 @@ The 3D model loads with `fetch`, so open the folder through a local web server (
 
 Then visit http://localhost:8000 in Chrome or Edge (Web Serial is needed for the RFID platform).
 
-Controls: plug in the Pico and click **Connect platform** once (the browser remembers it), or use keys `1`–`4` to unlock parts, `r` to reset, and `d` for the dev panel.
+Controls: plug in the Pico and click **Connect** in the bottom strip once (the browser remembers it). Without hardware: keys `1`–`4` place parts, `Enter` presses the main button on screen, `←`/`→` move through the timeline, `r` starts over, and `d` opens the developer tools.
 
 ## Structure
 
-- `index.html` - page markup
-- `css/style.css` - styles (light and dark themes)
-- `js/data.js` - part descriptions and timeline entries
-- `js/app.js` - game state (`unlock(id)`, `reset()`), Three.js model loading, UI
+- `index.html` - page markup (one full-screen stage)
+- `css/style.css` - styles (dark mission-console theme)
+- `js/data.js` - all on-screen text: parts, timeline, interface strings
+- `js/app.js` - game flow (`unlock(id)`, `add()`, `wake()`, `reset()`), Three.js model loading, UI
+- `docs/DESIGN.md` - design system and interaction flow
 - `js/input.js` - RFID platform over Web Serial, keyboard shortcuts, dev panel for registering tags
-- `assets/mer_small.glb` - compressed copy of the NASA model (textures resized to 1024 px)
+- `assets/Mars Exploration Rover - Spirit and Opportunity.glb` - the NASA model (loaded first)
+- `assets/mer_small.glb` - compressed backup copy (textures resized to 1024 px)
 
 Three.js r128 is loaded from the jsDelivr CDN, so no build step is needed.
 
