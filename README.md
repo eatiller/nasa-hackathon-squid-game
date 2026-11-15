@@ -12,7 +12,7 @@ The 3D model loads with `fetch`, so open the folder through a local web server (
 
 Then visit http://localhost:8000 in Chrome or Edge (Web Serial is needed for the RFID platform).
 
-Controls: plug in the Pico and click **Connect** in the bottom strip once (the browser remembers it). Without hardware: keys `1`–`4` place parts, `Enter` presses the main button on screen, `←`/`→` move through the timeline, `r` starts over, and `d` opens the developer tools.
+Controls: plug in the RFID reader (Teensy 4.1 running `rfid_nasa/`, or a Pico 2 running `Mechatronics/RFID_Project/`) and click **Connect** in the bottom strip once (the browser remembers it). Without hardware: keys `1`–`4` place parts, `Enter` presses the main button on screen, `←`/`→` move through the timeline, `r` starts over, and `d` opens the developer tools.
 
 ## Structure
 

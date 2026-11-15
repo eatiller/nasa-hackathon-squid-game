@@ -1,16 +1,19 @@
-// Inputs: RFID platform (Pico over USB serial) and keyboard. They only call unlock(id), add(), primary(), nav(d) and reset() from app.js.
+// Inputs: RFID platform (Teensy 4.1 or Pico 2 over USB serial) and keyboard. They only call unlock(id), add(), primary(), nav(d) and reset() from app.js.
 // The platform can only unlock parts; resetting is up to the user (Start over button or the r key).
 //
 // Serial lines understood (case-insensitive, everything else is ignored):
-//   UID:93e39a92            agreed protocol: tag UID as hex
-//   Uid is: 93 e3 9a 92     what Mechatronics/RFID_Project/example.c prints today (%x, unpadded bytes)
-//   Card UID: 93 E3 9A 92   printed by PICC_DumpToSerial
-//   ADD:<part id>           firmware did the mapping itself
-//   READY                   platform booted
+//   UID:93e39a92              agreed protocol: tag UID as hex
+//   Card UID: 93 E3 9A 92     rfid_nasa/src/main.cpp (Teensy 4.1, Arduino MFRC522 library) and PICC_DumpToSerial
+//   TAG_DETECTED,93E39A92     Mechatronics/RFID_Project/RFID_Project.c (Pico 2); TAG_REMOVED is ignored
+//   Uid is: 93 e3 9a 92       Mechatronics/RFID_Project/example.c (%x, unpadded bytes)
+//   ADD:<part id>             firmware did the mapping itself
+//   READY / DEBUG,READY,...   platform booted
+//   ERROR,...                 reader problem (e.g. ERROR,RC522_SPI_NOT_RESPONDING): shown in the status
 // Keys: 1-4 place PARTS[0-3], Enter presses the main button on screen, left/right walk the timeline, r resets, d toggles the tools panel.
 (()=>{
 const $=s=>document.querySelector(s);
-const PICO={usbVendorId:0x2e8a};             // Raspberry Pi USB vendor id (Pico SDK stdio_usb)
+const BOARDS=[{usbVendorId:0x16c0},          // PJRC Teensy (rfid_nasa, the board in use)
+              {usbVendorId:0x2e8a}];         // Raspberry Pi Pico (Pico SDK stdio_usb)
 const LS='uidMap';                           // tags assigned in the dev panel, kept in this browser
 const btn=$('#connect'),plat=$('#plat');
 let port=null,open=false;
@@ -30,12 +33,13 @@ function normUid(t){
 }
 
 // ---- line parsing
-const UID_RE=/^(?:uid|uid is|card uid)\s*:?\s*((?:[0-9a-f]+[\s:-]+)*[0-9a-f]+)$/i;
+const UID_RE=/^(?:uid|uid is|card uid|tag_detected)\s*[:,]?\s*((?:[0-9a-f]+[\s:-]+)*[0-9a-f]+)$/i;
 function handleLine(raw){
   const s=raw.trim();if(!s)return;
   log(s);
   let m;
-  if(/^ready$/i.test(s)){setPlat('Platform ready','ok');return}
+  if(/^(?:debug,)?ready\b|^rfid reader ready/i.test(s)){setPlat('Platform ready','ok');return}
+  if(/^error,/i.test(s)){setPlat('Reader problem: '+s.slice(6),'err');return}
   if((m=s.match(/^add\s*:\s*([a-z0-9_]+)$/i))){unlock(m[1].toLowerCase());return}
   if((m=s.match(UID_RE))){
     const uid=normUid(m[1]),id=partFor(uid);
@@ -49,6 +53,7 @@ async function openPort(p){
   if(open)return;
   try{await p.open({baudRate:115200})}
   catch(e){setPlat('Could not open the platform: '+e.message,'err');return}
+  try{await p.setSignals({dataTerminalReady:true})}catch(e){}   // the Teensy sketch waits for DTR (while(!Serial)) before it starts
   port=p;open=true;btn.hidden=true;setPlat('Platform connected','ok');
   readLoop(p);
 }
@@ -74,7 +79,7 @@ async function readLoop(p){
 }
 if('serial' in navigator){
   btn.onclick=async()=>{
-    try{await openPort(await navigator.serial.requestPort({filters:[PICO]}))}
+    try{await openPort(await navigator.serial.requestPort({filters:BOARDS}))}
     catch(e){if(e.name!=='NotFoundError')setPlat('Could not connect: '+e.message,'err')}
   };
   // Reconnect to a port this site was already allowed to use, on load and when it's plugged back in.
