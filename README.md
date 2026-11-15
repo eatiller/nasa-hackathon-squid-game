@@ -23,8 +23,9 @@ The site opens in Hardware mode by default. Use the switch in the bottom telemet
 - `js/sound.js` - ambient Mars audio, synthesized interaction cues, and sound preference
 - `docs/DESIGN.md` - design system and interaction flow
 - `js/input.js` - edition switch, Web Serial RFID input, tag assignment, and keyboard shortcuts
-- `assets/Mars Exploration Rover - Spirit and Opportunity.glb` - the NASA model (loaded first)
-- `assets/mer_small.glb` - compressed backup copy (textures resized to 1024 px)
+- `assets/24883_MER_static.glb` - the accurate NASA Mars Exploration Rover model loaded at startup
+- `assets/Mars Exploration Rover - Spirit and Opportunity.glb` - full fallback model
+- `assets/mer_small.glb` - compressed final fallback (textures resized to 1024 px)
 - `assets/img/` - NASA pictures shown in the timeline, plus `traverse.jpg` (the route map)
 - `assets/pano/` - NASA panoramas used as dimmed backdrops
 - `assets/audio/first-mars-sounds.m4a` - compressed copy of the supplied Perseverance Mars recording

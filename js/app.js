@@ -748,9 +748,10 @@ stg.ondragover=e=>{e.preventDefault();stg.classList.add('over')};
 stg.ondragleave=()=>stg.classList.remove('over');
 stg.ondrop=e=>{e.preventDefault();stg.classList.remove('over');readFile(e.dataTransfer.files[0])};
 update();
-// Full NASA model first; the compressed copy is the backup.
-const MODELS=['assets/Mars Exploration Rover - Spirit and Opportunity.glb','assets/mer_small.glb'];
+// Accurate MER model first; the older full model and compressed copy are fallbacks.
+const MODELS=['assets/24883_MER_static.glb','assets/Mars Exploration Rover - Spirit and Opportunity.glb','assets/mer_small.glb'];
 const get=u=>fetch(encodeURI(u)).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.arrayBuffer()});
-get(MODELS[0]).catch(()=>get(MODELS[1]))
+const getModel=(i=0)=>get(MODELS[i]).catch(e=>i+1<MODELS.length?getModel(i+1):Promise.reject(e));
+getModel()
   .then(buf=>GL.load(buf))
   .catch(e=>msg('Could not load the 3D model ('+e.message+'). Serve the folder over http, not file://.'));
