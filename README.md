@@ -6,14 +6,13 @@ An interactive site where kids rebuild NASA's Opportunity rover one part at a ti
 
 ## Demo of 3D parts
 Instrument Deployment Device:
-![](https://github.com/eatiller/nasa-hackathon-wake-up-oppy/blob/main/demos/instrument_deployment_device.MOV)
+![](https://github.com/user-attachments/assets/9a395ea6-abd2-4f7c-99d6-fd5561029963)
 
-<video src="/demos/instrument_deployment_device.MOV" width="300" controls></video>
 
 Pancam Mast Assembly:
-![](https://github.com/eatiller/nasa-hackathon-wake-up-oppy/blob/main/demos/pancam_mast_assembly.MOV)
+![](https://github.com/user-attachments/assets/5d06df5a-bf39-4e6c-9aba-4d488db6c257)
 
-<video src="/demos/pancam_mast_assembly.MOV" width="300" controls></video>
+
 
 ## Run locally
 
