@@ -24,6 +24,17 @@ Then visit http://localhost:8000. The Browser edition works in any modern browse
 
 The site opens in Hardware mode by default. Use the switch in the bottom telemetry bar to choose an edition. In Browser mode, select the four part cards on screen. In Hardware mode, connect the Teensy 4.1 or Pico 2 RFID platform and scan each part. Unknown RFID tags can be assigned from the model tools panel. Drag the 3D rover to turn it; use the mouse wheel or a two-finger pinch to zoom. In either edition, keys `1`–`4` provide a part-selection fallback; `Enter` presses the main button, `←`/`→` move through the timeline, `r` starts over, and `d` opens model tools. Sound starts after the first interaction; use **Sound on/off** in the telemetry bar or press `m` to toggle it.
 
+### Assign RFID/NFC tags
+
+1. In Hardware mode, click **Connect** and select the RFID reader.
+2. Press `D` on the keyboard to open **Model tools**.
+3. Scan an RFID/NFC tag. When it is recognized as an unassigned tag, it appears in the **RFID tags** list.
+4. Choose the rover part for that tag from the assignment menu. The mapping is saved in this browser, and scanning the tag will select that part.
+
+If a tag stops working or needs to be replaced, click **Forget assigned tags**, scan the tag again, and assign it to the rover part. This clears all tag assignments saved in this browser, so reassign any other tags you still use.
+
+If the scanner stops responding, unplug it and plug it back in, then reconnect it to the website. Check that another browser tab, website, or application (such as the VS Code Serial Monitor) is not already using the reader; close it before reconnecting.
+
 ## Structure
 
 - `index.html` - page markup (one full-screen stage)
