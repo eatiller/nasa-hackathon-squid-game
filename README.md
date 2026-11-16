@@ -6,11 +6,11 @@ An interactive site where kids rebuild NASA's Opportunity rover one part at a ti
 
 ## Demo of 3D parts
 Instrument Deployment Device:
-![](https://github.com/user-attachments/assets/9a395ea6-abd2-4f7c-99d6-fd5561029963)
+https://github.com/user-attachments/assets/9a395ea6-abd2-4f7c-99d6-fd5561029963
 
 
 Pancam Mast Assembly:
-![](https://github.com/user-attachments/assets/5d06df5a-bf39-4e6c-9aba-4d488db6c257)
+https://github.com/user-attachments/assets/5d06df5a-bf39-4e6c-9aba-4d488db6c257
 
 
 
