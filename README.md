@@ -1,8 +1,15 @@
-# nasa-hackathon-squid-game
-
 # Wake Up, Oppy
 
+View our live site: https://eatiller.github.io/nasa-hackathon-wake-up-oppy/ 
+
 An interactive site where kids rebuild NASA's Opportunity rover one part at a time. The site can switch between a **Browser** edition with on-screen part controls and a **Hardware** edition driven by the RFID platform. Selecting or scanning a part opens its 3D model and facts; **Add to rover** snaps it onto the floating rover. With all four parts (solar array, arm, camera mast, wheels) on, **Wake up, Oppy** appears and an interactive timeline walks through the mission.
+
+## Demo of 3D parts
+Instrument Deployment Device:
+<video src="/demos/instrument_deployment_device.MOV" width="300" controls></video>
+
+Pancam Mast Assembly:
+<video src="/demos/pancam_mast_assembly.MOV" width="300" controls></video>
 
 ## Run locally
 
