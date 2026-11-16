@@ -1,4 +1,4 @@
-# Wake Up, Oppy
+# Wake Up, Oppy!
 
 View our live site: https://eatiller.github.io/nasa-hackathon-wake-up-oppy/ 
 
